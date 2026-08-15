@@ -1,0 +1,32 @@
+name: Patch midmonth sales
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-midmonth.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch index
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          s=s.replace('<label>المبيعات حتى بداية اليوم</label><input id="salesBefore" readonly>','<label>المبيعات المحققة حتى بداية اليوم (إدخال أولي)</label><input id="salesBefore" type="text" inputmode="decimal">')
+          helper="""async function saveMidmonthSalesSeed(){let raw=$('salesBefore').value.trim().replace(/,/g,'');if(raw==='')return;let v=Number(raw);if(Number.isNaN(v)||v<0)throw Error('أدخل المبيعات المحققة حتى بداية اليوم بشكل صحيح');let r=await fetch('https://fvkzsmtadppclzexaktz.supabase.co/functions/v1/rakiza-midmonth?k=rkz-v1-6X9pQ2m8T4s7',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({work_date:app.date,opening_sales:v,monthly_target:Number($('monthlyTarget').value||0)})});let j=await r.json();if(!r.ok)throw Error(j.error||'تعذر حفظ المبيعات الافتتاحية')}"""
+          if 'async function saveMidmonthSalesSeed()' not in s:
+              s=s.replace('async function approveOpening(){',helper+'async function approveOpening(){')
+          s=s.replace("await api('save-opening',{method:'POST'", "await saveMidmonthSalesSeed();await api('save-opening',{method:'POST'")
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Enable midmonth achieved sales input"
+          git push
