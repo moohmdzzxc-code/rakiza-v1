@@ -1,0 +1,38 @@
+name: Patch roster copy
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-roster-copy.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch roster copy feature
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old='''<div class="fields"><div class="field"><label>بداية الأسبوع</label><input id="weekStart" type="date" onchange="prepareRoster()"></div><div class="field"><label>من أعدها</label><select id="rosterBy"></select></div></div><div id="rosterState">'''
+          new='''<div class="fields"><div class="field"><label>بداية الأسبوع</label><input id="weekStart" type="date" onchange="prepareRoster()"></div><div class="field"><label>من أعدها</label><select id="rosterBy"></select></div></div><div class="fields" style="margin-top:10px"><div class="field"><label>نسخ من أسبوع سابق</label><input id="copyWeekStart" type="date"></div><div class="field"><label>&nbsp;</label><button class="btn ghost" onclick="copyPreviousRoster()">سحب الخطة السابقة</button></div></div><div id="rosterState">'''
+          if old not in s: raise SystemExit('Roster header pattern not found')
+          s=s.replace(old,new,1)
+          old_open="function openRoster(){show('roster');renderEmployeeEditor();$('weekStart').value=weekSunday(app.date);$('rosterBy').innerHTML=empOptions();prepareRoster()}"
+          new_open="function openRoster(){show('roster');renderEmployeeEditor();let ws=weekSunday(app.date);$('weekStart').value=ws;let pd=new Date(ws+'T12:00:00');pd.setDate(pd.getDate()-7);$('copyWeekStart').value=pd.toISOString().slice(0,10);$('rosterBy').innerHTML=empOptions();prepareRoster()}"
+          if old_open not in s: raise SystemExit('openRoster pattern not found')
+          s=s.replace(old_open,new_open,1)
+          marker='function calcRosterTotals(){'
+          fn='''async function copyPreviousRoster(){try{if($('rosterGrid').dataset.saved==='1')throw Error('الأسبوع الحالي محفوظ ولا يمكن استبدال الخطة الأصلية');let sourceRaw=$('copyWeekStart').value,target=$('weekStart').value;if(!sourceRaw)throw Error('اختر أسبوعًا سابقًا');let source=weekSunday(sourceRaw);if(source===target)throw Error('اختر أسبوعًا مختلفًا');let r=await api('roster-get',{q:{week_start:source}});if(!r.header||!(r.entries||[]).length)throw Error('لا توجد خطة محفوظة لهذا الأسبوع');let srcDates=dates7(source),tgtDates=dates7(target),m=new Map((r.entries||[]).map(x=>[x.employee_id+'|'+x.work_date,x.planned_status]));[...$('rosterGrid').querySelectorAll('tr')].forEach(row=>{tgtDates.forEach((d,i)=>{let sel=row.querySelector(`[data-date="${d}"]`);if(sel)sel.value=m.get(row.dataset.emp+'|'+srcDates[i])||''})});calcRosterTotals();$('rosterState').innerHTML='<div class="notice ok">تم سحب خطة الأسبوع '+source+' كنسخة قابلة للتعديل. الخطة الأصلية لم تتغير.</div>'}catch(e){alert(e.message)}}'''
+          if marker not in s: raise SystemExit('Totals marker not found')
+          s=s.replace(marker,fn+marker,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Commit patch
+        run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add copy previous roster plan [skip ci]"
+          git push
