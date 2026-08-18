@@ -1,0 +1,36 @@
+name: Patch work mission roster status
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-work-mission-roster.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add work mission status only
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old1="<select id=\"chgStatus\"><option>Morning</option><option>Evening</option><option>D/O</option><option>A/L</option><option>S/L</option><option>تعويضي</option></select>"
+          new1="<select id=\"chgStatus\"><option>Morning</option><option>Evening</option><option>D/O</option><option>A/L</option><option>S/L</option><option>تعويضي</option><option>مهمة عمل</option></select>"
+          if old1 not in s:
+              raise SystemExit('change status selector pattern not found')
+          s=s.replace(old1,new1,1)
+          old2="['','Morning','Evening','D/O','A/L','S/L','تعويضي']"
+          new2="['','Morning','Evening','D/O','A/L','S/L','تعويضي','مهمة عمل']"
+          if old2 not in s:
+              raise SystemExit('weekly roster status list pattern not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Commit patch
+        run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add work mission status to roster only [skip ci]"
+          git push
