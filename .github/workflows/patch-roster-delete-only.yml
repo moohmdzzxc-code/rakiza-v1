@@ -1,0 +1,31 @@
+name: Patch roster delete only
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-roster-delete-only.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add delete button to roster change log only
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          old="""function renderRosterChanges(){let c=rosterLoaded?.changes||[];if(!c.length){$('rosterChangeList').innerHTML='<p class=\"mut\">لا توجد تغييرات مسجلة على الخطة الأصلية.</p>';return}let names=new Map(app.employees.map(e=>[e.id,e.full_name])),grouped=new Map();c.forEach(x=>{let k=x.employee_id+'|'+x.work_date;grouped.set(k,(grouped.get(k)||0)+1)});$('rosterChangeList').innerHTML='<div class=\"scroll\"><table><thead><tr><th>التاريخ</th><th>الموظف</th><th>الأصل</th><th>التغيير</th><th>السبب</th><th>الوقت</th><th>عدد التغييرات</th></tr></thead><tbody>'+c.slice().reverse().map(x=>`<tr><td>${x.work_date}</td><td>${esc(names.get(x.employee_id)||'')}</td><td>${esc(x.original_status||'')}</td><td>${esc(x.new_status)}</td><td>${esc(x.reason)}</td><td>${new Date(x.changed_at).toLocaleString('ar-SA')}</td><td>${grouped.get(x.employee_id+'|'+x.work_date)}</td></tr>`).join('')+'</tbody></table></div>'}"""
+          new="""async function deleteRosterChange(id){try{if(!confirm('حذف هذا التسجيل من سجل التغييرات؟ لن يتم حذف الخطة الأصلية أو أي تسجيل آخر.'))return;let r=await fetch('https://fvkzsmtadppclzexaktz.supabase.co/functions/v1/rakiza-roster-change-delete?k=rkz-v1-6X9pQ2m8T4s7',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({id})});let j=await r.json();if(!r.ok)throw Error(j.error||'تعذر حذف التسجيل');await prepareRoster();alert('تم حذف تسجيل التغيير')}catch(e){alert(e.message)}}function renderRosterChanges(){let c=rosterLoaded?.changes||[];if(!c.length){$('rosterChangeList').innerHTML='<p class=\"mut\">لا توجد تغييرات مسجلة على الخطة الأصلية.</p>';return}let names=new Map(app.employees.map(e=>[e.id,e.full_name])),grouped=new Map();c.forEach(x=>{let k=x.employee_id+'|'+x.work_date;grouped.set(k,(grouped.get(k)||0)+1)});$('rosterChangeList').innerHTML='<div class=\"scroll\"><table><thead><tr><th>التاريخ</th><th>الموظف</th><th>الأصل</th><th>التغيير</th><th>السبب</th><th>الوقت</th><th>عدد التغييرات</th><th>إجراء</th></tr></thead><tbody>'+c.slice().reverse().map(x=>`<tr><td>${x.work_date}</td><td>${esc(names.get(x.employee_id)||'')}</td><td>${esc(x.original_status||'')}</td><td>${esc(x.new_status)}</td><td>${esc(x.reason)}</td><td>${new Date(x.changed_at).toLocaleString('ar-SA')}</td><td>${grouped.get(x.employee_id+'|'+x.work_date)}</td><td><button class=\"mini\" style=\"color:#c83b3b;border-color:#efb4b4;font-weight:700\" onclick=\"deleteRosterChange('${x.id}')\">حذف</button></td></tr>`).join('')+'</tbody></table></div>'}"""
+          if old not in s:
+              raise SystemExit('Stable renderRosterChanges pattern not found; no changes applied')
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+      - name: Commit patch
+        run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add delete button to roster change log only [skip ci]"
+          git push
