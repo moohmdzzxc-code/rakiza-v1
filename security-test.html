@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ركيزة — اختبار الدخول الآمن</title>
+<style>
+:root{--n:#17365d;--g:#c8a45d;--bg:#f4f6f8;--line:#e3e7ec;--mut:#667085;--ok:#166534;--err:#8a1c1c}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#182230;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial}.wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}.card{width:min(430px,100%);background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 4px 16px #11182710}.brand{font-size:32px;font-weight:900;color:var(--n)}.mut{color:var(--mut);margin:4px 0 14px}.field{margin-top:12px}.field label{display:block;font-size:13px;color:var(--mut);margin-bottom:5px}.field input{width:100%;padding:11px;border:1px solid #d5dbe2;border-radius:10px;font:inherit}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}.btn{border:0;border-radius:11px;padding:11px 13px;background:var(--n);color:#fff;font:inherit;font-weight:750;cursor:pointer}.btn.gold{background:var(--g);color:#182230}.btn.ghost{background:#edf1f5;color:var(--n);width:100%;margin-top:8px}.msg{margin-top:14px;padding:11px;border-radius:10px;background:#eef3f8}.msg.ok{background:#e4f5e9;color:var(--ok)}.msg.err{background:#fee6e6;color:var(--err)}@media(max-width:520px){.actions{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="wrap"><div class="card"><div class="brand">ركيزة</div><div class="mut">اختبار تسجيل الدخول الآمن — لا يؤثر على النسخة الحالية</div><div class="field"><label>البريد الإلكتروني</label><input id="email" type="email" autocomplete="username"></div><div class="field"><label>كلمة المرور</label><input id="password" type="password" autocomplete="current-password"></div><div class="actions"><button class="btn gold" onclick="createAccount()">إنشاء حساب التجربة</button><button class="btn" onclick="login()">دخول</button></div><button class="btn ghost" onclick="logout()">تسجيل الخروج</button><div id="msg" class="msg">أدخل بريدك واختر كلمة مرور بنفسك داخل هذه الصفحة. لا ترسل كلمة المرور لأي شخص.</div></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const URL='https://fvkzsmtadppclzexaktz.supabase.co';
+const KEY='sb_publishable_qVIyrH5nY3VjTBcbLUukvA_kUPjqGx_';
+const API=URL+'/functions/v1/rakiza-candidate-api';
+const sb=supabase.createClient(URL,KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const $=id=>document.getElementById(id);function show(text,type=''){$('msg').className='msg '+type;$('msg').textContent=text}function creds(){const email=$('email').value.trim(),password=$('password').value;if(!email)throw Error('أدخل البريد الإلكتروني');if(password.length<8)throw Error('اختر كلمة مرور من 8 أحرف على الأقل');return{email,password}}
+async function testAccess(){const {data:{session}}=await sb.auth.getSession();if(!session){show('الحساب غير مسجل دخول حاليًا.','err');return false}const r=await fetch(API+'?api=bootstrap',{headers:{authorization:'Bearer '+session.access_token,apikey:KEY}});let j={};try{j=await r.json()}catch{}if(!r.ok){show(j.error||'تم تسجيل الدخول لكن فشل اختبار صلاحية ركيزة.','err');return false}show('نجح الاختبار الأمني. تم تسجيل الدخول والوصول المصرح إلى فرع '+(j.branch?.name||'التجربة')+'.','ok');return true}
+async function createAccount(){try{const {email,password}=creds();show('جاري إنشاء الحساب...');const {data,error}=await sb.auth.signUp({email,password});if(error)throw error;if(data.session){await testAccess()}else show('تم إرسال رسالة تأكيد إلى بريدك. افتح الرسالة وأكد الحساب، ثم ارجع لهذه الصفحة واضغط «دخول».','ok')}catch(e){show(e.message||String(e),'err')}}
+async function login(){try{const {email,password}=creds();show('جاري تسجيل الدخول...');const {error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;await testAccess()}catch(e){show(e.message||String(e),'err')}}
+async function logout(){await sb.auth.signOut();show('تم تسجيل الخروج.')}sb.auth.getSession().then(({data})=>{if(data.session)testAccess()});
+</script></body></html>
