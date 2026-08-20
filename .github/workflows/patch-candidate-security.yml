@@ -1,0 +1,79 @@
+name: Patch candidate security frontend
+
+on:
+  push:
+    branches: [candidate-v1-security]
+    paths:
+      - '.github/workflows/patch-candidate-security.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: candidate-v1-security
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch index.html
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          def one(old,new,label):
+              global s
+              n=s.count(old)
+              if n!=1:
+                  raise SystemExit(f'{label}: expected exactly 1 target, found {n}')
+              s=s.replace(old,new,1)
+
+          one('</style></head><body><main class="app">', '''
+          .auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px;background:var(--bg)}
+          .auth-card{width:min(430px,100%)}
+          .auth-brand{font-size:34px;font-weight:900;color:var(--n);margin-bottom:4px}
+          .auth-card .field{margin-top:12px}
+          </style></head><body><section id="authGate" class="auth-wrap"><div class="card auth-card"><div class="auth-brand">ركيزة</div><div class="mut">تسجيل الدخول إلى بيئة التجربة</div><div id="loginMsg"></div><div class="field"><label>البريد الإلكتروني</label><input id="loginEmail" type="email" autocomplete="username"></div><div class="field"><label>كلمة المرور</label><input id="loginPassword" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginRakiza()"></div><button id="loginBtn" class="btn gold" style="width:100%;margin-top:14px" onclick="loginRakiza()">دخول</button></div></section><main id="appMain" class="app hidden">''','auth gate')
+
+          one('<div class="badge" id="head">تحميل...</div></div><div id="homeMsg">', '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div class="badge" id="head">تحميل...</div><button class="btn ghost" onclick="logoutRakiza()">تسجيل الخروج</button></div></div><div id="homeMsg">','logout button')
+
+          one('<script>\nconst API=\'https://fvkzsmtadppclzexaktz.supabase.co/functions/v1/rakiza-api\',TOKEN=\'rkz-v1-6X9pQ2m8T4s7\';let app=', '''<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>\n<script>\nconst SUPABASE_URL='https://fvkzsmtadppclzexaktz.supabase.co';\nconst SUPABASE_KEY='sb_publishable_qVIyrH5nY3VjTBcbLUukvA_kUPjqGx_';\nconst API=SUPABASE_URL+'/functions/v1/rakiza-candidate-api';\nconst DELETE_API=SUPABASE_URL+'/functions/v1/rakiza-candidate-roster-change-delete';\nconst MIDMONTH_API=SUPABASE_URL+'/functions/v1/rakiza-candidate-midmonth';\nconst sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});\nlet app=''', 'security constants')
+
+          pattern=r"async function api\(a,o=\{\}\)\{.*?return j\}"
+          replacement="""async function api(a,o={}){const {data:{session}}=await sb.auth.getSession();if(!session)throw Error('انتهت الجلسة. سجل الدخول من جديد');let u=new URL(API);u.searchParams.set('api',a);Object.entries(o.q||{}).forEach(([k,v])=>u.searchParams.set(k,v));let r=await fetch(u,{method:o.method||'GET',headers:{'content-type':'application/json','authorization':'Bearer '+session.access_token,'apikey':SUPABASE_KEY},body:o.body?JSON.stringify(o.body):undefined}),t=await r.text(),j;try{j=JSON.parse(t)}catch{throw Error('استجابة غير صالحة')}if(r.status===401){await sb.auth.signOut();throw Error('انتهت الجلسة. سجل الدخول من جديد')}if(!r.ok)throw Error(j.error||'حدث خطأ');return j}"""
+          s,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'api function: expected 1, found {n}')
+
+          pattern=r"async function saveMidmonthSalesSeed\(\)\{.*?\}async function approveOpening"
+          replacement="""async function saveMidmonthSalesSeed(){let raw=$('salesBefore').value.trim().replace(/,/g,'');if(raw==='')return;let v=Number(raw);if(Number.isNaN(v)||v<0)throw Error('أدخل المبيعات المحققة حتى بداية اليوم بشكل صحيح');const {data:{session}}=await sb.auth.getSession();if(!session)throw Error('انتهت الجلسة');let r=await fetch(MIDMONTH_API,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+session.access_token,'apikey':SUPABASE_KEY},body:JSON.stringify({work_date:app.date,opening_sales:v,monthly_target:Number($('monthlyTarget').value||0)})});let j=await r.json();if(!r.ok)throw Error(j.error||'تعذر حفظ المبيعات الافتتاحية')}async function approveOpening"""
+          s,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'midmonth function: expected 1, found {n}')
+
+          pattern=r"async function deleteRosterChange\(id\)\{.*?\}function renderRosterChanges"
+          replacement="""async function deleteRosterChange(id){try{if(!confirm('حذف هذا التسجيل من سجل التغييرات؟ لن يتم حذف الخطة الأصلية أو أي تسجيل آخر.'))return;const {data:{session}}=await sb.auth.getSession();if(!session)throw Error('انتهت الجلسة');let r=await fetch(DELETE_API,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+session.access_token,'apikey':SUPABASE_KEY},body:JSON.stringify({id})});let j=await r.json();if(!r.ok)throw Error(j.error||'تعذر حذف التسجيل');await prepareRoster();alert('تم حذف تسجيل التغيير')}catch(e){alert(e.message)}}function renderRosterChanges"""
+          s,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'delete function: expected 1, found {n}')
+
+          one('load();\n</script></body></html>', '''async function loginRakiza(){let msg=$('loginMsg'),btn=$('loginBtn');try{msg.innerHTML='';btn.disabled=true;let email=$('loginEmail').value.trim(),password=$('loginPassword').value;if(!email||!password)throw Error('أدخل البريد الإلكتروني وكلمة المرور');let {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;if(!data.session)throw Error('تعذر بدء الجلسة');$('authGate').classList.add('hidden');$('appMain').classList.remove('hidden');await load()}catch(e){msg.innerHTML='<div class="notice err">'+esc(e.message)+'</div>'}finally{btn.disabled=false}}\nasync function logoutRakiza(){await sb.auth.signOut();app={};$('appMain').classList.add('hidden');$('authGate').classList.remove('hidden');$('loginPassword').value=''}\nasync function initAuth(){const {data:{session}}=await sb.auth.getSession();if(session){$('authGate').classList.add('hidden');$('appMain').classList.remove('hidden');try{await load()}catch(e){$('appMain').classList.add('hidden');$('authGate').classList.remove('hidden');$('loginMsg').innerHTML='<div class="notice err">'+esc(e.message)+'</div>'}}else{$('authGate').classList.remove('hidden');$('appMain').classList.add('hidden')}}\nsb.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){$('appMain').classList.add('hidden');$('authGate').classList.remove('hidden')}});\ninitAuth();\n</script></body></html>''','auth init')
+
+          if 'rkz-v1-6X9pQ2m8T4s7' in s:
+              raise SystemExit('old shared token still present in candidate frontend')
+          if '/functions/v1/rakiza-api' in s or '/functions/v1/rakiza-roster-change-delete' in s or '/functions/v1/rakiza-midmonth?k=' in s:
+              raise SystemExit('old insecure endpoint still present in candidate frontend')
+
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit candidate patch
+        run: |
+          git config user.name "Rakiza Security Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git commit -m "Add authenticated candidate frontend [skip ci]" || exit 0
+          git push origin candidate-v1-security
