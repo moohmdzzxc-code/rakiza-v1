@@ -1,0 +1,23 @@
+name: Apply V1 workflow layout
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-v1-workflow-layout.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: python scripts/patch_v1_workflow_layout.py
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Reorganize V1 start close and day plan [skip ci]"
+          git push origin main
