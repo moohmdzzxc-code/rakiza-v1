@@ -1,0 +1,31 @@
+name: Force Pages publish
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/force-pages-publish.yml'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          marker='<!-- pages-publish: action-controls-2026-08-22 -->'
+          if marker not in s:
+              s=s.replace('<title>ركيزة V1</title>','<title>ركيزة V1</title>'+marker,1)
+              p.write_text(s,encoding='utf-8')
+          PY
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Publish action controls to V1"
+          git push origin main
