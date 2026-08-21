@@ -1,0 +1,79 @@
+name: Patch V1 opening sales separation
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-v1-sales-separation.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch index.html
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          # 1) Add the independent sales-status interface to the V1 home page.
+          old='<div class="tile"><h3>خطة التواجد</h3><button class="btn" onclick="openRoster()">فتح</button></div><div class="tile"><h3>الوضع الحالي</h3>'
+          new='<div class="tile"><h3>خطة التواجد</h3><button class="btn" onclick="openRoster()">فتح</button></div><div class="tile"><h3>الوضع البيعي</h3><button class="btn" onclick="openSales()">فتح</button></div><div class="tile"><h3>الوضع الحالي</h3>'
+          if old not in s: raise SystemExit('home tile anchor not found')
+          s=s.replace(old,new,1)
+
+          # 2) Start OP-T001 directly with readiness. Keep a fixed compact day/sales summary above it.
+          op=s.index('<section id="opening" class="view">')
+          steps=s.index('<div class="steps">',op)
+          o2=s.index('<div id="o2"',steps)
+          prefix='''<div class="steps"><span class="step on" data-s="2">1 الجاهزية</span><span class="step" data-s="3">2 الفريق</span><span class="step" data-s="4">3 اعتماد الافتتاح</span><span class="step" data-s="5">4 خطة اليوم</span></div><div class="card" style="margin-bottom:14px"><div class="metrics"><div class="metric"><span class="mut">اليوم</span><strong id="quickDay">—</strong></div><div class="metric"><span class="mut">التاريخ</span><strong id="quickDate">—</strong></div><div class="metric"><span class="mut">مستهدف الشهر</span><strong id="quickMonthTarget">—</strong></div><div class="metric"><span class="mut">نسبة المحقق من الشهر</span><strong id="quickMonthAch">—</strong></div></div><input id="wd" type="hidden"><input id="monthlyTarget" type="hidden"><input id="dailyTarget" type="hidden"></div>'''
+          s=s[:steps]+prefix+s[o2:]
+          s=s.replace('<div id="o2" class="pane card hidden">','<div id="o2" class="pane card">',1)
+          s=s.replace('<button class="btn ghost" onclick="ostep(1)">السابق</button><button class="btn" onclick="ostep(3)">التالي</button>','<button class="btn ghost" onclick="home()">رجوع</button><button class="btn" onclick="ostep(3)">التالي</button>',1)
+          summary='<div id="o4" class="pane card hidden"><div class="title">ملخص واعتماد الافتتاح</div><div id="openingSummary"></div>'
+          summary_new='<div id="o4" class="pane card hidden"><div class="title">ملخص واعتماد الافتتاح</div><div class="field" style="max-width:520px;margin-bottom:14px"><label>القائم على الافتتاح</label><select id="openingBy"></select></div><div id="openingSummary"></div>'
+          if summary not in s: raise SystemExit('opening summary anchor not found')
+          s=s.replace(summary,summary_new,1)
+
+          # 3) Sales detail is a separate V1 page. Actual day sales remain in Close Day.
+          sales='''<section id="sales" class="view"><div class="top"><div><div class="brand">الوضع البيعي</div><div class="sub">المبيعات والأهداف</div></div><button class="btn ghost" onclick="home()">الرئيسية</button></div><div class="card wide" style="margin-top:14px"><div class="title">الوضع البيعي</div><div id="salesMsg"></div><div class="fields"><div class="field"><label>التاريخ</label><input id="salesDate" readonly></div><div class="field"><label>مستهدف الشهر</label><input id="salesMonthlyTarget" type="text" inputmode="decimal"></div><div class="field"><label>المحقق من الشهر حتى الآن</label><input id="salesMonthAchieved" readonly></div><div class="field"><label>نسبة المحقق من مستهدف الشهر</label><input id="salesMonthAchievement" readonly></div><div class="field"><label>المتبقي من مستهدف الشهر</label><input id="salesMonthRemaining" readonly></div><div class="field"><label>المستهدف حتى اليوم</label><input id="salesTargetToDate" readonly></div><div class="field"><label>مستهدف اليوم</label><input id="salesDailyTarget" type="text" inputmode="decimal"></div></div><div class="actions"><button class="btn gold" onclick="saveSalesStatus()">حفظ الوضع البيعي</button></div></div></section>\n'''
+          anchor='<section id="current" class="view">'
+          if anchor not in s: raise SystemExit('current section anchor not found')
+          s=s.replace(anchor,sales+anchor,1)
+
+          # 4) Add V1 sales endpoint.
+          old_const="const API='https://fvkzsmtadppclzexaktz.supabase.co/functions/v1/rakiza-api',TOKEN='rkz-v1-6X9pQ2m8T4s7';let"
+          new_const="const API='https://fvkzsmtadppclzexaktz.supabase.co/functions/v1/rakiza-api',TOKEN='rkz-v1-6X9pQ2m8T4s7',SALES_API='https://fvkzsmtadppclzexaktz.supabase.co/functions/v1/rakiza-sales-save';let"
+          if old_const not in s: raise SystemExit('api const anchor not found')
+          s=s.replace(old_const,new_const,1)
+
+          # 5) Replace opening card-1 JS with compact header + independent sales module.
+          js=s.index('function openOpening()')
+          os=s.index('function ostep(n)',js)
+          funcs='''function openOpening(){if(!app.day)return startDay();show('opening');renderOpening()}function openingMonthRowsBefore(d){return(app.recent||[]).filter(x=>x.work_date&&x.work_date.slice(0,7)===d.slice(0,7)&&x.work_date<d)}function openingSalesBefore(d){return openingMonthRowsBefore(d).reduce((sum,x)=>sum+Number(x.daily_sales||0),0)}function renderOpeningQuick(){let d=app.day?.work_date||app.date,month=Number(app.day?.monthly_target_snapshot??app.monthlyTarget??0),sales=openingSalesBefore(d),ach=month?sales/month*100:0;$('quickDay').textContent=todayName(d);$('quickDate').textContent=d;$('quickMonthTarget').textContent=month?month.toLocaleString('en-US'):'—';$('quickMonthAch').textContent=month?ach.toFixed(1)+'%':'—'}function renderOpening(){let d=app.day?.work_date||app.date,month=app.day?.monthly_target_snapshot??app.monthlyTarget??'',daily=app.day?.daily_target??0;$('wd').value=d;$('monthlyTarget').value=month;$('dailyTarget').value=daily;renderOpeningQuick();$('openingBy').innerHTML=empOptions(app.day?.opening_by_employee_id);renderChecks();renderAttendance();renderPlan();ostep(app.day?.opening_approved_at?5:2)}function salesWorkDate(){return app.day?.work_date||app.calendarDate||app.date}function renderSales(){let d=salesWorkDate(),rows=openingMonthRowsBefore(d),sales=rows.reduce((sum,x)=>sum+Number(x.daily_sales||0),0);if(app.day?.work_date===d&&app.day?.status==='مغلق')sales+=Number(app.day.daily_sales||0);let month=Number(app.day?.monthly_target_snapshot??app.monthlyTarget??0),daily=Number(app.day?.daily_target||0),priorTarget=rows.reduce((sum,x)=>sum+Number(x.daily_target||0),0),targetToDate=priorTarget+daily,ach=month?sales/month*100:0,rem=month-sales;$('salesDate').value=d;$('salesMonthlyTarget').value=month||'';$('salesMonthAchieved').value=sales;$('salesMonthAchievement').value=month?ach.toFixed(1)+'%':'—';$('salesMonthRemaining').value=month?rem:'';$('salesTargetToDate').value=targetToDate;$('salesDailyTarget').value=app.day?daily:'';$('salesDailyTarget').disabled=!app.day||app.day.status==='مغلق';$('salesMonthlyTarget').disabled=app.day?.status==='مغلق';$('salesMsg').innerHTML=!app.day?'<div class="notice">يمكن حفظ مستهدف الشهر الآن. مستهدف اليوم يتاح بعد بدء يوم التشغيل.</div>':app.day.status==='مغلق'?'<div class="notice">اليوم مغلق — البيانات البيعية للعرض فقط.</div>':'<div class="notice ok">تفاصيل المبيعات والأهداف مستقلة عن جولة الافتتاح.</div>'}function openSales(){show('sales');renderSales()}async function saveSalesStatus(){try{let d=salesWorkDate(),mRaw=$('salesMonthlyTarget').value.trim().replace(/,/g,''),dRaw=$('salesDailyTarget').value.trim().replace(/,/g,''),m=Number(mRaw);if(!mRaw||Number.isNaN(m)||m<0)throw Error('أدخل مستهدف الشهر بشكل صحيح');let daily=null;if(app.day){daily=Number(dRaw||0);if(Number.isNaN(daily)||daily<0)throw Error('أدخل مستهدف اليوم بشكل صحيح')}let r=await fetch(SALES_API+'?k='+TOKEN,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({work_date:d,monthly_target:m,daily_target:daily})}),j=await r.json();if(!r.ok)throw Error(j.error||'تعذر حفظ الوضع البيعي');await refresh();renderSales();alert('تم حفظ الوضع البيعي')}catch(e){alert(e.message)}}'''
+          s=s[:js]+funcs+s[os:]
+
+          # 6) Opening approval no longer owns sales entry.
+          a=s.index('async function saveMidmonthSalesSeed()')
+          b=s.index('function dayTypeChanged()',a)
+          approval='''async function approveOpening(){try{let checks=collectChecks();if(!$('openingBy').value)throw Error('حدد القائم على الافتتاح');if(checks.some(c=>!c.readiness_status))throw Error('قيّم جميع بنود الجاهزية');let monthly=Number($('monthlyTarget').value||app.monthlyTarget||0),daily=Number($('dailyTarget').value||app.day?.daily_target||0);await api('save-opening',{method:'POST',body:{workDate:app.date,openingByEmployeeId:$('openingBy').value,monthlyTarget:monthly,dailyTarget:daily,checks,attendance:collectAttendance()}});await refresh();renderOpening();ostep(5);alert('تم اعتماد الافتتاح وحفظه')}catch(e){alert(e.message)}}'''
+          s=s[:a]+approval+s[b:]
+
+          # 7) Current status remains operational; sales have their own page.
+          a=s.index('function openCurrent()')
+          b=s.index('function openHistory()',a)
+          current="function openCurrent(){show('current');let d=app.day||app.recent[0]||{};$('currentBody').innerHTML=`<div class=\"card wide\"><div class=\"title\">الوضع التشغيلي</div><div class=\"metrics\"><div class=\"metric\"><span>آخر جاهزية للمعرض</span><strong>${d.operational_readiness??'—'}%</strong></div><div class=\"metric\"><span>آخر كفاية تواجد</span><strong>${d.attendance_adequacy??'—'}%</strong></div><div class=\"metric\"><span>آخر جاهزية للمتواجدين</span><strong>${d.present_readiness??'—'}%</strong></div><div class=\"metric\"><span>حالة اليوم</span><strong>${d.status||'لم يبدأ'}</strong></div></div></div>`}"
+          s=s[:a]+current+s[b:]
+
+          p.write_text(s,encoding='utf-8')
+      - name: Commit V1 patch
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'Rakiza Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Separate V1 opening from sales status [skip ci]'
+          git push origin main
