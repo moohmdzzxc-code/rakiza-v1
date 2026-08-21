@@ -1,0 +1,134 @@
+name: Separate opening summary and sales status
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-opening-sales-separation.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply approved opening layout and sales separation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          # Add a dedicated sales-status tile on the home page.
+          current_tile='<div class="tile"><h3>الوضع الحالي</h3><button class="btn" onclick="openCurrent()">فتح</button></div>'
+          if current_tile not in s:
+              raise SystemExit('current-status home tile not found')
+          sales_tile='<div class="tile"><h3>الوضع البيعي</h3><button class="btn" onclick="openSales()">فتح</button></div>'
+          s=s.replace(current_tile,sales_tile+current_tile,1)
+
+          # Rebuild only the opening shell: compact summary first, then readiness directly.
+          opening_start=s.find('<section id="opening"')
+          if opening_start<0: raise SystemExit('opening section not found')
+          opening_end=s.find('</section>',opening_start)
+          if opening_end<0: raise SystemExit('opening section end not found')
+          opening_end+=len('</section>')
+          old=s[opening_start:opening_end]
+
+          def between(a,b):
+              x=old.find(a)
+              y=old.find(b,x)
+              if x<0 or y<0: raise SystemExit(f'opening block not found: {a} -> {b}')
+              return old[x:y]
+
+          o2=between('<div id="o2"','<div id="o3"')
+          o3=between('<div id="o3"','<div id="o4"')
+          o4=between('<div id="o4"','<div id="o5"')
+          x=old.find('<div id="o5"')
+          if x<0: raise SystemExit('o5 not found')
+          o5=old[x:old.rfind('</section>')]
+
+          if 'onclick="ostep(1)"' not in o2:
+              raise SystemExit('readiness previous-button pattern not found')
+          o2=o2.replace('onclick="ostep(1)"','onclick="home()"',1).replace('>السابق</button>','>رجوع</button>',1)
+
+          summary_marker='<div class="title">ملخص واعتماد الافتتاح</div><div id="openingSummary"></div>'
+          if summary_marker not in o4:
+              raise SystemExit('opening summary marker not found')
+          summary_repl='<div class="title">ملخص واعتماد الافتتاح</div><div class="field" style="max-width:520px;margin-bottom:14px"><label>القائم على الافتتاح</label><select id="openingBy"></select></div><div id="openingSummary"></div>'
+          o4=o4.replace(summary_marker,summary_repl,1)
+
+          new_opening='''<section id="opening" class="view"><div class="top"><div><div class="brand">بدء اليوم</div><div class="sub">OP‑T001 ثم OP‑T002</div></div><button class="btn ghost" onclick="home()">الرئيسية</button></div><div class="steps"><span class="step on" data-s="2">1 الجاهزية</span><span class="step" data-s="3">2 الفريق</span><span class="step" data-s="4">3 اعتماد الافتتاح</span><span class="step" data-s="5">4 خطة اليوم</span></div><div class="card" style="margin-bottom:14px"><div class="metrics"><div class="metric"><span class="mut">اليوم</span><strong id="quickDay">—</strong></div><div class="metric"><span class="mut">التاريخ</span><strong id="quickDate">—</strong></div><div class="metric"><span class="mut">مستهدف الشهر</span><strong id="quickMonthTarget">—</strong></div><div class="metric"><span class="mut">نسبة المحقق من الشهر</span><strong id="quickMonthAch">—</strong></div></div><input id="wd" type="hidden"><input id="monthlyTarget" type="hidden"><input id="dailyTarget" type="hidden"></div>'''+o2+o3+o4+o5+'</section>'
+          s=s[:opening_start]+new_opening+s[opening_end:]
+
+          # Dedicated sales-status screen. It owns the detailed sales information.
+          current_marker='<section id="current" class="view">'
+          pos=s.find(current_marker)
+          if pos<0: raise SystemExit('current view marker not found')
+          sales_view='''<section id="sales" class="view"><div class="top"><div><div class="brand">الوضع البيعي</div><div class="sub">المبيعات والأهداف</div></div><button class="btn ghost" onclick="home()">الرئيسية</button></div><div class="card wide"><div class="title">الوضع البيعي</div><div id="salesMsg"></div><div class="fields"><div class="field"><label>التاريخ</label><input id="salesDate" readonly></div><div class="field"><label>مستهدف الشهر</label><input id="salesMonthlyTarget" type="text" inputmode="decimal"></div><div class="field"><label>المحقق من الشهر حتى بداية اليوم</label><input id="salesMonthAchieved" readonly></div><div class="field"><label>نسبة المحقق من مستهدف الشهر</label><input id="salesMonthAchievement" readonly></div><div class="field"><label>المتبقي من مستهدف الشهر</label><input id="salesMonthRemaining" readonly></div><div class="field"><label>المستهدف حتى اليوم</label><input id="salesTargetToDate" readonly></div><div class="field"><label>مستهدف اليوم</label><input id="salesDailyTarget" type="text" inputmode="decimal"></div></div><div class="actions"><button class="btn gold" onclick="saveSalesStatus()">حفظ الوضع البيعي</button></div></div></section>'''
+          s=s[:pos]+sales_view+s[pos:]
+
+          # Sales write endpoint.
+          card1_const="const CARD1_SAVE_API=SUPABASE_URL+'/functions/v1/rakiza-candidate-card1-save';"
+          if card1_const not in s:
+              raise SystemExit('card1 endpoint marker not found')
+          s=s.replace(card1_const,card1_const+"\nconst SALES_SAVE_API=SUPABASE_URL+'/functions/v1/rakiza-candidate-sales-save';",1)
+
+          # Replace the old first-card flow. Readiness becomes the first actual step.
+          js_start=s.find('async function startDay(){')
+          js_end=s.find('function ostep(',js_start)
+          if js_start<0 or js_end<0: raise SystemExit('opening JS boundaries not found')
+          new_js=r'''async function startDay(){try{if(app.day?.status==='مغلق')throw Error('تم إغلاق يوم التشغيل لهذا التاريخ');if(!app.day){let d=app.calendarDate||app.date,r=await api('start-day',{method:'POST',body:{workDate:d,dayName:todayName(d)}});if(r.closed)throw Error('تم إغلاق يوم التشغيل لهذا التاريخ');await refresh()}openOpening()}catch(e){alert(e.message)}}function openOpening(){if(!app.day)return startDay();show('opening');renderOpening()}function openingMonthRowsBefore(d){return(app.recent||[]).filter(x=>x.work_date&&x.work_date.slice(0,7)===d.slice(0,7)&&x.work_date<d)}function openingSalesBefore(d){return openingMonthRowsBefore(d).reduce((sum,x)=>sum+Number(x.daily_sales||0),0)}function renderOpeningQuick(){let d=app.day?.work_date||app.date,month=Number(app.day?.monthly_target_snapshot??app.monthlyTarget??0),sales=openingSalesBefore(d),ach=month?sales/month*100:0;$('quickDay').textContent=todayName(d);$('quickDate').textContent=d;$('quickMonthTarget').textContent=month?month.toLocaleString('en-US'):'—';$('quickMonthAch').textContent=month?ach.toFixed(1)+'%':'—'}function renderOpening(){let d=app.day?.work_date||app.date,month=app.day?.monthly_target_snapshot??app.monthlyTarget??'',daily=app.day?.daily_target??0;$('wd').value=d;$('monthlyTarget').value=month;$('dailyTarget').value=daily;renderOpeningQuick();$('openingBy').innerHTML=empOptions(app.day?.opening_by_employee_id);renderChecks();renderAttendance();renderPlan();ostep(app.day?.opening_approved_at?5:2)}function salesWorkDate(){return app.day?.work_date||app.calendarDate||app.date}function renderSales(){let d=salesWorkDate(),rows=openingMonthRowsBefore(d),sales=rows.reduce((sum,x)=>sum+Number(x.daily_sales||0),0);if(app.day?.work_date===d&&app.day?.status==='مغلق')sales+=Number(app.day.daily_sales||0);let month=Number(app.day?.monthly_target_snapshot??app.monthlyTarget??0),daily=Number(app.day?.daily_target||0),priorTarget=rows.reduce((sum,x)=>sum+Number(x.daily_target||0),0),targetToDate=priorTarget+daily,ach=month?sales/month*100:0,rem=month-sales;$('salesDate').value=d;$('salesMonthlyTarget').value=month||'';$('salesMonthAchieved').value=sales;$('salesMonthAchievement').value=month?ach.toFixed(1)+'%':'—';$('salesMonthRemaining').value=month?rem:'';$('salesTargetToDate').value=targetToDate;$('salesDailyTarget').value=app.day?daily:'';$('salesDailyTarget').disabled=!app.day||app.day.status==='مغلق';$('salesMonthlyTarget').disabled=app.day?.status==='مغلق';$('salesMsg').innerHTML=!app.day?'<div class="notice">يمكن حفظ مستهدف الشهر الآن. مستهدف اليوم يتاح بعد بدء يوم التشغيل.</div>':app.day.status==='مغلق'?'<div class="notice">اليوم مغلق — البيانات البيعية للعرض فقط.</div>':'<div class="notice ok">تفاصيل المبيعات والأهداف مستقلة عن جولة الافتتاح.</div>'}async function openSales(){show('sales');renderSales()}async function persistSalesStatus(workDate,monthlyTarget,dailyTarget){const {data:{session}}=await sb.auth.getSession();if(!session)throw Error('انتهت الجلسة. سجل الدخول من جديد');let r=await fetch(SALES_SAVE_API,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+session.access_token,'apikey':SUPABASE_KEY},body:JSON.stringify({work_date:workDate,monthly_target:monthlyTarget,daily_target:dailyTarget})}),t=await r.text(),j;try{j=JSON.parse(t)}catch{throw Error('استجابة حفظ الوضع البيعي غير صالحة')}if(r.status===401){await sb.auth.signOut();throw Error('انتهت الجلسة. سجل الدخول من جديد')}if(!r.ok)throw Error(j.error||'تعذر حفظ الوضع البيعي');return j}async function saveSalesStatus(){try{let d=salesWorkDate(),mRaw=$('salesMonthlyTarget').value.trim().replace(/,/g,''),dRaw=$('salesDailyTarget').value.trim().replace(/,/g,''),m=Number(mRaw);if(!mRaw||Number.isNaN(m)||m<0)throw Error('أدخل مستهدف الشهر بشكل صحيح');let daily=null;if(app.day){daily=Number(dRaw||0);if(Number.isNaN(daily)||daily<0)throw Error('أدخل مستهدف اليوم بشكل صحيح')}await persistSalesStatus(d,m,daily);await refresh();renderSales();alert('تم حفظ الوضع البيعي')}catch(e){alert(e.message)}}'''
+          s=s[:js_start]+new_js+s[js_end:]
+
+          # Opening approval no longer requires sales entry in the opening screen.
+          approve_start=s.find('async function approveOpening(){')
+          approve_end=s.find('function dayTypeChanged()',approve_start)
+          if approve_start<0 or approve_end<0: raise SystemExit('approveOpening boundaries not found')
+          new_approve=r'''async function approveOpening(){try{let checks=collectChecks();if(!$('openingBy').value)throw Error('حدد القائم على الافتتاح');if(checks.some(c=>!c.readiness_status))throw Error('قيّم جميع بنود الجاهزية');let monthly=Number($('monthlyTarget').value||app.monthlyTarget||0),daily=Number($('dailyTarget').value||app.day?.daily_target||0);await api('save-opening',{method:'POST',body:{workDate:$('wd').value,openingByEmployeeId:$('openingBy').value,monthlyTarget:monthly,dailyTarget:daily,checks,attendance:collectAttendance()}});await refresh();renderOpening();ostep(5);alert('تم اعتماد الافتتاح وحفظه')}catch(e){alert(e.message)}}'''
+          s=s[:approve_start]+new_approve+s[approve_end:]
+
+          # Current status becomes operational-only; sales now has its own unit.
+          cur_start=s.find('function openCurrent(){')
+          cur_end=s.find('function openHistory(){',cur_start)
+          if cur_start<0 or cur_end<0: raise SystemExit('openCurrent boundaries not found')
+          new_current=r'''function openCurrent(){show('current');let d=app.day||app.recent[0]||{};$('currentBody').innerHTML=`<div class="card wide"><div class="title">الوضع التشغيلي</div><div class="metrics"><div class="metric"><span>آخر جاهزية للمعرض</span><strong>${d.operational_readiness??'—'}%</strong></div><div class="metric"><span>آخر كفاية تواجد</span><strong>${d.attendance_adequacy??'—'}%</strong></div><div class="metric"><span>آخر جاهزية للمتواجدين</span><strong>${d.present_readiness??'—'}%</strong></div><div class="metric"><span>حالة اليوم</span><strong>${d.status||'لم يبدأ'}</strong></div></div></div>`}'''
+          s=s[:cur_start]+new_current+s[cur_end:]
+
+          # Guardrails.
+          required=['id="quickDay"','id="quickDate"','id="quickMonthTarget"','id="quickMonthAch"','id="sales" class="view"','openSales()','SALES_SAVE_API','<span class="step on" data-s="2">1 الجاهزية</span>']
+          for x in required:
+              if x not in s: raise SystemExit('missing required marker: '+x)
+          opening=s[s.find('<section id="opening"'):s.find('</section>',s.find('<section id="opening"'))]
+          for forbidden in ['معلومات اليوم والوضع البيعي','id="salesBefore"','id="achBefore"','id="remaining"','id="dayName"','id="branchField"','id="openingStart"']:
+              if forbidden in opening: raise SystemExit('old opening detail still present: '+forbidden)
+
+          p.write_text(s,encoding='utf-8')
+
+      - name: Syntax and scope checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert s.count('id="sales" class="view"')==1
+          assert s.count('id="openingBy"')==1
+          assert 'الجاهزية التشغيلية — 100 درجة' in s
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
+          inline=[b for b in blocks if b.strip()]
+          Path('/tmp/rakiza-inline.js').write_text(inline[-1],encoding='utf-8')
+          print('scope checks passed')
+          PY
+          node --check /tmp/rakiza-inline.js
+
+      - name: Commit approved separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git diff -- index.html
+          git add -- index.html
+          git commit -m "Separate opening summary from sales status [skip ci]"
+          git push
