@@ -1,0 +1,166 @@
+name: Patch approved OP-T001 card 1
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-op-t001-card1.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply approved OP-T001 card 1 only
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          def replace_once(old, new, label):
+              global s
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly 1 match, found {count}')
+              s = s.replace(old, new, 1)
+
+          # Card 1 UI: keep only the approved fields and behavior.
+          replace_once(
+              '<div class="field"><label>التاريخ</label><input id="wd" readonly></div>',
+              '<div class="field"><label>التاريخ</label><input id="wd" type="date" onchange="openingDateChanged()"></div>',
+              'editable date'
+          )
+          replace_once(
+              '<div class="field"><label>مستهدف الشهر</label><input id="monthlyTarget" type="text" inputmode="decimal"></div>',
+              '<div class="field"><label>مستهدف الشهر</label><input id="monthlyTarget" type="text" inputmode="decimal" oninput="renderOpeningSalesStatus()"></div>',
+              'monthly target recalculation'
+          )
+          replace_once(
+              '<div class="field"><label>المستهدف حتى اليوم</label><input id="targetToDate" readonly></div>',
+              '',
+              'remove unapproved target-to-date field'
+          )
+          replace_once(
+              '<div class="field"><label>المبيعات المحققة حتى بداية اليوم (إدخال أولي)</label><input id="salesBefore" type="text" inputmode="decimal"></div>',
+              '<div class="field"><label>المبيعات المحققة حتى بداية اليوم</label><input id="salesBefore" readonly></div>',
+              'automatic sales before day'
+          )
+          replace_once(
+              '<div class="field"><label>مستهدف اليوم</label><input id="dailyTarget" type="text" inputmode="decimal"></div>',
+              '<div class="field"><label>مستهدف اليوم</label><input id="dailyTarget" type="text" inputmode="decimal" oninput="renderOpeningSalesStatus()"></div>',
+              'daily target recalculation'
+          )
+          replace_once(
+              '<div class="field"><label>وقت اعتماد الافتتاح</label><input id="approvedAt" readonly></div>',
+              '',
+              'remove unapproved approval-time field'
+          )
+          replace_once(
+              '<div class="actions"><button class="btn ghost" onclick="home()">رجوع</button><button class="btn" onclick="ostep(2)">التالي</button></div></div><div id="o2"',
+              '<div class="actions"><button class="btn ghost" onclick="home()">رجوع</button><button class="btn" onclick="saveOpeningCard1AndNext()">التالي</button></div></div><div id="o2"',
+              'card 1 next action'
+          )
+
+          # Candidate card 1 no longer accepts a manual mid-month sales seed.
+          replace_once(
+              "const MIDMONTH_API=SUPABASE_URL+'/functions/v1/rakiza-candidate-midmonth';\n",
+              '',
+              'remove manual sales seed endpoint constant'
+          )
+
+          # Opening is displayed as a draft first so the approved date can be edited
+          # before the operating day record is created.
+          start_marker = 'async function startDay(){'
+          render_marker = 'function renderOpening(){'
+          start_pos = s.find(start_marker)
+          render_pos = s.find(render_marker, start_pos)
+          if start_pos < 0 or render_pos < 0:
+              raise SystemExit('start/opening function markers not found')
+          opening_prefix = s[start_pos:render_pos]
+          expected_opening_prefix_end = 'function openOpening(){if(!app.day)return startDay();show(\'opening\');renderOpening()}'
+          if expected_opening_prefix_end not in opening_prefix:
+              raise SystemExit('current start/openOpening implementation did not match expected candidate code')
+          s = s[:start_pos] + "async function startDay(){openOpening()}function openOpening(){show('opening');renderOpening()}" + s[render_pos:]
+
+          # Replace only the first-card renderer, leaving readiness/team/OP-T002 untouched.
+          render_start = s.find('function renderOpening(){')
+          render_end = s.find('function ostep(', render_start)
+          if render_start < 0 or render_end < 0:
+              raise SystemExit('renderOpening boundaries not found')
+          new_render = r'''function openingSeedDate(){return app.day?.work_date||app.calendarDate||app.date}function openingMonthRowsBefore(d){return (app.recent||[]).filter(x=>x.work_date&&x.work_date.slice(0,7)===d.slice(0,7)&&x.work_date<d)}function renderOpeningSalesStatus(){let d=$('wd').value||openingSeedDate(),rows=openingMonthRowsBefore(d),sales=rows.reduce((sum,x)=>sum+Number(x.daily_sales||0),0),priorTarget=rows.reduce((sum,x)=>sum+Number(x.daily_target||0),0),dailyRaw=String($('dailyTarget').value||'').replace(/,/g,''),monthRaw=String($('monthlyTarget').value||'').replace(/,/g,''),daily=Number(dailyRaw)||0,month=Number(monthRaw)||0,targetToDate=priorTarget+daily;$('salesBefore').value=sales;$('achBefore').value=(targetToDate?sales/targetToDate*100:0).toFixed(1)+'%';$('remaining').value=month?month-sales:''}function openingDateChanged(){let d=$('wd').value;if(!d)return;if(app.day&&d!==app.date){alert('لا يمكن تغيير التاريخ بعد بدء يوم التشغيل');$('wd').value=app.date;d=app.date}$('dayName').value=todayName(d);let month=d.slice(0,7),sameMonth=(app.date||'').slice(0,7)===month,seed=(app.recent||[]).find(x=>x.work_date&&x.work_date.slice(0,7)===month&&x.monthly_target_snapshot!=null);$('monthlyTarget').value=seed?.monthly_target_snapshot??(sameMonth?(app.monthlyTarget||''):'');renderOpeningSalesStatus()}function renderOpening(){let d=openingSeedDate();$('wd').readOnly=!!app.day;$('wd').value=d;$('dayName').value=todayName(d);$('branchField').value=app.branch.name;$('openingBy').innerHTML=empOptions(app.day?.opening_by_employee_id);let started=app.day?.opening_started_at?new Date(app.day.opening_started_at):new Date();$('openingStart').value=started.toLocaleTimeString('ar-SA',{hour:'2-digit',minute:'2-digit'});$('monthlyTarget').value=app.day?.monthly_target_snapshot||app.monthlyTarget||'';$('dailyTarget').value=app.day?.daily_target||'';renderOpeningSalesStatus();renderChecks();renderAttendance();renderPlan();ostep(app.day?.opening_approved_at?5:1)}async function saveOpeningCard1AndNext(){try{let d=$('wd').value,monthly=$('monthlyTarget').value.trim(),daily=$('dailyTarget').value.trim(),openingBy=$('openingBy').value,monthlyNum=Number(monthly.replace(/,/g,'')),dailyNum=Number(daily.replace(/,/g,''));if(!d)throw Error('حدد التاريخ');if(!openingBy)throw Error('حدد القائم على الافتتاح');if(!monthly||Number.isNaN(monthlyNum)||monthlyNum<0)throw Error('أدخل مستهدف الشهر بشكل صحيح');if(!daily||Number.isNaN(dailyNum)||dailyNum<0)throw Error('أدخل مستهدف اليوم بشكل صحيح');if(app.day&&d!==app.date)throw Error('لا يمكن تغيير التاريخ بعد بدء يوم التشغيل');if(!app.day){let r=await api('start-day',{method:'POST',body:{workDate:d,dayName:todayName(d)}});if(r.closed)throw Error('تم إغلاق يوم التشغيل لهذا التاريخ');await refresh();renderOpening();$('openingBy').value=openingBy;$('monthlyTarget').value=monthly;$('dailyTarget').value=daily;renderOpeningSalesStatus()}ostep(2)}catch(e){alert(e.message)}}'''
+          s = s[:render_start] + new_render + s[render_end:]
+
+          # Remove the manual sales seed helper and its call from final approval.
+          seed_start = s.find('async function saveMidmonthSalesSeed(){')
+          approve_start = s.find('async function approveOpening(){', seed_start)
+          if seed_start < 0 or approve_start < 0:
+              raise SystemExit('manual sales seed helper boundaries not found')
+          s = s[:seed_start] + s[approve_start:]
+
+          approve_start = s.find('async function approveOpening(){')
+          approve_end = s.find('function dayTypeChanged()', approve_start)
+          if approve_start < 0 or approve_end < 0:
+              raise SystemExit('approveOpening boundaries not found')
+          approve = s[approve_start:approve_end]
+          if "await saveMidmonthSalesSeed();" in approve:
+              approve = approve.replace('await saveMidmonthSalesSeed();', '', 1)
+          old_work_date = "body:{workDate:app.date,openingByEmployeeId:"
+          new_work_date = "body:{workDate:$('wd').value,openingByEmployeeId:"
+          if old_work_date not in approve:
+              raise SystemExit('approveOpening workDate pattern not found')
+          approve = approve.replace(old_work_date, new_work_date, 1)
+          s = s[:approve_start] + approve + s[approve_end:]
+
+          # Guardrails: approved card fields are present; removed/manual fields are absent from card 1.
+          required = [
+              'id="wd" type="date"', 'id="dayName" readonly', 'id="branchField" readonly',
+              'id="openingBy"', 'id="openingStart" readonly', 'id="monthlyTarget"',
+              'id="dailyTarget"', 'id="salesBefore" readonly', 'id="achBefore" readonly',
+              'id="remaining" readonly', 'saveOpeningCard1AndNext()', 'renderOpeningSalesStatus()'
+          ]
+          for needle in required:
+              if needle not in s:
+                  raise SystemExit(f'missing required approved-card marker: {needle}')
+          card1 = s[s.find('<div id="o1"'):s.find('<div id="o2"')]
+          for forbidden in ['id="targetToDate"', 'id="approvedAt"', 'إدخال أولي']:
+              if forbidden in card1:
+                  raise SystemExit(f'unapproved card-1 marker still present: {forbidden}')
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Syntax and scope checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert '<div id="o2"' in s and '<div id="o3"' in s and '<div id="o5"' in s
+          assert "const MIDMONTH_API=" not in s
+          assert 'saveMidmonthSalesSeed' not in s
+          print('HTML scope checks passed')
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
+          inline=[b for b in blocks if b.strip()]
+          if not inline:
+              raise SystemExit('inline script not found')
+          Path('/tmp/rakiza-inline.js').write_text(inline[-1],encoding='utf-8')
+          PY
+          node --check /tmp/rakiza-inline.js
+
+      - name: Commit approved card 1 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git diff --check
+          git diff -- index.html
+          git add -- index.html
+          git commit -m "Implement approved OP-T001 card 1 [skip ci]"
+          git push
