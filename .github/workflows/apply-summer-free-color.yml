@@ -4,6 +4,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/patch_summer_free_color.py'
+      - '.github/workflows/apply-summer-free-color.yml'
 permissions:
   contents: write
 jobs:
