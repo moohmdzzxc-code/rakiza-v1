@@ -1,9 +1,7 @@
 name: Apply Classic smart shortage search
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/patch_classic_smart_shortage.py'
+  pull_request:
+    types: [opened]
 permissions:
   contents: write
 jobs:
