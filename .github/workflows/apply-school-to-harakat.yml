@@ -1,9 +1,7 @@
 name: Apply School to Harakat mapping
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/apply-school-to-harakat.yml'
+  pull_request:
+    types: [opened]
 permissions:
   contents: write
 jobs:
@@ -21,4 +19,3 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "Map School shortages to Harakat section"
           git push origin main
-# trigger 2026-08-24
