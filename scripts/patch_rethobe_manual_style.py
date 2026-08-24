@@ -1,5 +1,6 @@
 from pathlib import Path
 import re
+# trigger apply: 2026-08-24
 
 p=Path('index.html')
 s=p.read_text(encoding='utf-8')
