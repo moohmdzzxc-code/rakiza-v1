@@ -1,4 +1,5 @@
 name: Apply Winter manual style
+# trigger 2026-08-24
 on:
   push:
     branches: [main]
