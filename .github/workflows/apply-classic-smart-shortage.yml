@@ -1,7 +1,7 @@
 name: Apply Classic smart shortage search
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize]
 permissions:
   contents: write
 jobs:
@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - run: python scripts/patch_classic_smart_shortage.py
+      - run: python scripts/patch_classic_smart_shortage_v2.py
       - run: |
           git config user.name "Rakiza Automation"
           git config user.email "actions@users.noreply.github.com"
