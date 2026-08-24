@@ -1,0 +1,22 @@
+from pathlib import Path
+import re
+p=Path('index.html')
+s=p.read_text(encoding='utf-8')
+
+s=s.replace('مرتبط بورقة Excel: Zakhrafat. ابحث بالمقاس أو رقم الموديل أو الفئة.','مرتبط بورقة Excel: Zakhrafat. ابحث بالمقاس فقط، ثم أدخل رقم الموديل يدويًا.')
+s=s.replace('<label>ابحث عن المقاس / رقم الموديل / الفئة</label><input id="zakhrafatSearch" oninput="renderZakhrafatResults()" placeholder="مثال: 54M أو 2671 أو Youth">','<label>ابحث عن المقاس</label><input id="zakhrafatSearch" oninput="renderZakhrafatResults()" placeholder="مثال: 54M">')
+s=s.replace('<div class="mut" id="zakhrafatChosenMeta" style="margin-top:5px">زخرفات</div><div class="fields" style="margin-top:10px">','<div class="mut" id="zakhrafatChosenMeta" style="margin-top:5px">زخرفات</div><div class="field" style="margin-top:10px"><label>رقم الموديل</label><input id="zakhrafatStyle" inputmode="numeric" placeholder="اكتب رقم الموديل الحالي"></div><div class="fields" style="margin-top:10px">')
+
+pat=r"const ZAKHRAFAT_STYLES=\[[^;]+;const ZAKHRAFAT_CATALOG=.*?ZAKHRAFAT_CATALOG\.forEach\(\(x,i\)=>x\.i=i\);"
+rep="const ZAKHRAFAT_CATALOG=Object.entries(ZAKHRAFAT_GROUPS).flatMap(([generation,sizes])=>sizes.map(size=>({generation,size,label:size,search:`${size} ${generation} ${ZAKHRAFAT_AR[generation]} زخرفات zakhrafat`})));ZAKHRAFAT_CATALOG.forEach((x,i)=>x.i=i);"
+s,n=re.subn(pat,rep,s,count=1,flags=re.S)
+assert n==1,'Zakhrafat catalog block not found'
+
+pat=r"function renderZakhrafatResults\(\)\{.*?\}function addZakhrafatDraft\(\)\{.*?\}function removeZakhrafatDraft"
+rep=r'''function renderZakhrafatResults(){let q=$('zakhrafatSearch').value.trim().toLowerCase();if(!q){$('zakhrafatResults').innerHTML='<p class="mut">ابدأ بالكتابة للبحث في مقاسات الزخرفات.</p>';return}let rows=ZAKHRAFAT_CATALOG.filter(x=>x.search.toLowerCase().includes(q)).slice(0,24);$('zakhrafatResults').innerHTML=rows.length?'<div class="actions" style="justify-content:flex-start;flex-wrap:wrap">'+rows.map(x=>`<button class="mini" onclick="selectZakhrafatItem(${x.i})">${esc(x.size)}</button>`).join('')+'</div>':'<div class="notice">لا يوجد مقاس مطابق في نموذج الزخرفات.</div>'}function selectZakhrafatItem(i){let x=ZAKHRAFAT_CATALOG[i];if(!x)return;zakhrafatSelectedItem=x;$('zakhrafatChosenLabel').textContent=x.size;$('zakhrafatChosenMeta').textContent=`زخرفات • ${ZAKHRAFAT_AR[x.generation]} • ${x.generation}`;$('zakhrafatStyle').value='';$('zakhrafatCurrent').value='0';$('zakhrafatRequested').value='0';$('zakhrafatLost').value='0';$('zakhrafatSelected').classList.remove('hidden')}function addZakhrafatDraft(){try{if(!zakhrafatSelectedItem)throw Error('اختر المقاس أولًا');let style=$('zakhrafatStyle').value.trim();if(!style)throw Error('أدخل رقم الموديل');let label=`${zakhrafatSelectedItem.size} — موديل ${style}`,section=$('shortSection').value,key=label.trim().toLowerCase(),dup=shortagesData.find(q=>{if(q.section_id!==section||String(q.size||'').trim().toLowerCase()!==key||q.shortage_status!=='تم الطلب')return false;let a=q.action_id?app.actions.find(z=>z.id===q.action_id):null;return !a||a.action_status!=='مغلق'});if(dup)throw Error(`هذا الصنف له طلب تغذية قائم بالفعل منذ ${dup.ordered_date||'—'}`);if(zakhrafatDraft.some(x=>x.label===label))throw Error('هذا الصنف مضاف بالفعل في الطلب الحالي');let current=Number($('zakhrafatCurrent').value||0),requested=Number($('zakhrafatRequested').value||0),lost=Number($('zakhrafatLost').value||0);if([current,requested,lost].some(x=>Number.isNaN(x)||x<0))throw Error('أدخل الكميات بشكل صحيح');zakhrafatDraft.push({label,size:zakhrafatSelectedItem.size,style,generation:zakhrafatSelectedItem.generation,current_qty:current,requested_qty:requested,lost_opportunities:lost});renderZakhrafatDraft();zakhrafatSelectedItem=null;$('zakhrafatSelected').classList.add('hidden');$('zakhrafatSearch').value='';$('zakhrafatResults').innerHTML='<p class="mut">تمت الإضافة. ابحث عن مقاس آخر أو احفظ الطلب.</p>'}catch(e){alert(e.message)}}function removeZakhrafatDraft'''
+s,n=re.subn(pat,rep,s,count=1,flags=re.S)
+assert n==1,'Zakhrafat functions block not found'
+
+s=s.replace("$('zakhrafatResults').innerHTML='<p class=\"mut\">ابدأ بالكتابة للبحث في مقاس أو رقم موديل أو فئة الزخرفات.</p>'","$('zakhrafatResults').innerHTML='<p class=\"mut\">ابدأ بالكتابة للبحث في مقاسات الزخرفات.</p>'")
+s=s.replace('<!-- pages-publish: zakhrafat-smart-shortage-search-2026-08-24 -->','<!-- pages-publish: zakhrafat-manual-style-2026-08-24 -->')
+p.write_text(s,encoding='utf-8')
