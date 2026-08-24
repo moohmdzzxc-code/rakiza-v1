@@ -1,0 +1,23 @@
+name: Apply Classic smart shortage search
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_classic_smart_shortage.py'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: python scripts/patch_classic_smart_shortage.py
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Add smart Classic shortage search"
+          git push origin main
