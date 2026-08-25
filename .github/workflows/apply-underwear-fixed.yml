@@ -1,0 +1,21 @@
+name: Apply underwear fixed
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_underwear_fixed.py'
+      - '.github/workflows/apply-underwear-fixed.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/patch_underwear_fixed.py
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Add fixed underwear shortages flow"
+          git push
