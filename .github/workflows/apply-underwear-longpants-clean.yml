@@ -1,0 +1,34 @@
+name: Apply underwear long pants clean
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_underwear_longpants_sizes.py'
+      - '.github/workflows/apply-underwear-longpants-clean.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/patch_underwear_longpants_sizes.py
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          m=re.search(r'<script>(.*)</script>',s,re.S)
+          assert m
+          Path('/tmp/rakiza.js').write_text(m.group(1),encoding='utf-8')
+          PY
+          node --check /tmp/rakiza.js
+          grep -q "'سروال طويل':\['30','32','34','36','38'\]" index.html
+          grep -q "'سروال طويل':\['16','18','20','22','24','26','28','29'\]" index.html
+          ! grep -q "30K" index.html
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Clean long pants numeric sizes"
+          git push
