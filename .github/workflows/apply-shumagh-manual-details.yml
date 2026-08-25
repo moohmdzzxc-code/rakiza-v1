@@ -1,0 +1,24 @@
+name: Apply Shumagh manual details
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_shumagh_manual_details.py'
+      - '.github/workflows/apply-shumagh-manual-details.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: python scripts/patch_shumagh_manual_details.py
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Add smart Shumagh shortage search"
+          git push origin main
