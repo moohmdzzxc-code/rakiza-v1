@@ -1,0 +1,24 @@
+name: Apply Acc Socks perfume
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/patch_acc_socks_perfume.py'
+      - '.github/workflows/apply-acc-socks-perfume.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - run: python scripts/patch_acc_socks_perfume.py
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Add Acc Socks perfume shortage flow"
+          git push origin main
