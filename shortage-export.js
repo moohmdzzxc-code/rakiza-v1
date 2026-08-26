@@ -38,7 +38,7 @@ function bySection(name){return openShortages().filter(x=>x.sections?.name===nam
 function q(x){return Number(x.requested_qty||0)}
 
 function buildSummary(wb, totals){
-  const ws=wb.addWorksheet('Summary');
+  const ws=wb.getWorksheet('Summary')||wb.addWorksheet('Summary');
   ws.addRow(['',Object.values(totals).reduce((a,b)=>a+b,0),'']);
   ws.addRow(['Category','Required Qty','Details']);
   const items=[['U.W','U.W'],['Classic','Classic'],['School','School'],['Business','Business'],['Fakher','Fakher'],['Zakhrafat','Zakhrafat'],['Rethobe','Rethobe'],['Summer','Summer'],['Winter','Winter'],['Egal , Hat','Egal , Hat'],['Shumagh , Ghutra','Shumagh , Ghutra'],['Nightrobe , Pigama','Nightrobe , Pigama'],['Acc, Socks','Acc, Socks']];
@@ -65,13 +65,12 @@ async function exportShortagesExcel(){
     if(!rows.length)throw new Error('لا توجد نواقص مفتوحة لتصديرها');
     const btn=$('shortExportBtn');if(btn){btn.disabled=true;btn.textContent='جاري تجهيز Excel...'}
     await loadExcelJs();
-    const wb=new ExcelJS.Workbook();wb.creator='Rakiza';wb.created=new Date();
+    const wb=new ExcelJS.Workbook();wb.creator='Rakiza';wb.created=new Date();wb.addWorksheet('Summary');
     const totals={};
     totals['U.W']=buildUW(wb);totals['Classic']=buildClassic(wb);totals['School']=buildSchool(wb);totals['Business']=buildSimpleColorSheet(wb,'Business','الأعمال','Business');totals['Fakher']=buildSimpleColorSheet(wb,'Fakher','الفاخر','Fakher');
     totals['Zakhrafat']=buildVariable(wb,'Zakhrafat','الزخرفات','Zakhrafat','Model No.');totals['Rethobe']=buildVariable(wb,'Rethobe','ري ثوب','Rethobe','Model No.');totals['Summer']=buildVariable(wb,'Summer','الصيفي','Summer','Color');totals['Winter']=buildVariable(wb,'Winter','الشتوي','Winter','Model No.');
     totals['Egal , Hat']=buildEgal(wb);totals['Shumagh , Ghutra']=buildShumagh(wb);totals['Nightrobe , Pigama']=buildNight(wb);totals['Acc, Socks']=buildAcc(wb);
     buildSummary(wb,totals);
-    const sum=wb.getWorksheet('Summary');wb._worksheets.splice(wb._worksheets.indexOf(sum),1);wb._worksheets.splice(1,0,sum);
     const buffer=await wb.xlsx.writeBuffer();
     const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');
     const d=app.calendarDate||app.date||new Date().toISOString().slice(0,10);a.href=url;a.download=`نواقص معرض شهار - ${d}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);
