@@ -1,0 +1,25 @@
+name: Fix shortage export Summary order
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/fix_shortage_export_summary_order.py'
+      - '.github/workflows/fix-shortage-export-summary-order.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/fix_shortage_export_summary_order.py
+      - run: |
+          node --check shortage-export.js
+          grep -q "wb.addWorksheet('Summary')" shortage-export.js
+          ! grep -q "wb._worksheets" shortage-export.js
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add shortage-export.js
+          git diff --cached --quiet || git commit -m "Place Summary first in shortage export"
+          git push
