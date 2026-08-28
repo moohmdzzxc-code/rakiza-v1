@@ -1,0 +1,67 @@
+name: Fix monthly target image OCR
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-monthly-target-image-ocr.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch image target reader
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('monthly-targets.js')
+          s=p.read_text()
+          s=s.replace('<div class="notice">في بداية الشهر ارفع ملف المستهدفات مرة واحدة. يقبل Excel أو صورة واضحة من تقرير المستهدفات، ثم راجع الأرقام قبل الاعتماد.</div>','<div class="notice">في بداية الشهر ارفع ملف المستهدفات مرة واحدة. يقبل Excel أو صورة واضحة من تقرير المستهدفات. إذا كان الجدول موزعًا على أكثر من لقطة بسبب التمرير، اختر جميع الصور معًا، ثم راجع الأرقام قبل الاعتماد.</div>')
+          s=s.replace('<div class="field"><label>ملف المستهدفات</label><input id="monthlyTargetFile" type="file" accept=".xlsx,.xlsm,image/png,image/jpeg,image/webp"></div>','<div class="field"><label>ملف Excel أو صورة / صور المستهدفات</label><input id="monthlyTargetFile" type="file" multiple accept=".xlsx,.xlsm,image/png,image/jpeg,image/webp"></div>')
+
+          start=s.index('function parseOcrText(text){')
+          end=s.index('\n\nfunction buildDraft(', start)
+          new_block=r'''function ocrStrictNum(v){
+  let s=arabicDigits(v).trim().replace(/\s/g,'').replace(/[−–—]/g,'-');
+  if(!/^-?\d[\d,]*(?:\.\d+)?$/.test(s))return null;
+  return num(s);
+}
+function parseOcrTsv(tsv){
+  const month=activeMonth(),dmap=dateMaps(month),found=new Map(),raw=String(tsv||'').split(/\r?\n/).filter(Boolean);if(raw.length<2)return found;
+  const hdr=raw[0].split('\t'),ix=n=>hdr.indexOf(n),iLevel=ix('level'),iLeft=ix('left'),iTop=ix('top'),iWidth=ix('width'),iHeight=ix('height'),iConf=ix('conf'),iText=ix('text');
+  if([iLevel,iLeft,iTop,iWidth,iHeight,iText].some(i=>i<0))return found;
+  const all=raw.slice(1).map(line=>{const a=line.split('\t');return{level:Number(a[iLevel]),left:Number(a[iLeft])||0,top:Number(a[iTop])||0,width:Number(a[iWidth])||0,height:Number(a[iHeight])||0,conf:Number(a[iConf])||0,text:(a[iText]||'').trim()}}),words=all.filter(r=>r.level===5&&r.text);
+  const page=all.find(r=>r.level===1),pageW=page?.width||Math.max(1,...words.map(r=>r.left+r.width)),cx=r=>r.left+r.width/2,cy=r=>r.top+r.height/2,low=r=>String(r.text||'').toLowerCase();
+  const headerCenter=label=>{const bases=words.filter(r=>low(r)===label);for(const b of bases){const targets=words.filter(r=>low(r)==='target'&&cx(r)>cx(b)&&Math.abs(cy(r)-cy(b))<18).sort((a,z)=>cx(a)-cx(z));if(targets.length)return(cx(b)+cx(targets[0]))/2}return null};
+  const basicX=headerCenter('basic')??pageW*.295,challengeX=headerCenter('challenge')??pageW*.578;
+  const pick=(rowWords,x,tol)=>{const c=rowWords.map(w=>({w,v:ocrStrictNum(w.text),dist:Math.abs(cx(w)-x)})).filter(z=>z.v!==null&&z.v>=0&&z.dist<=tol).sort((a,b)=>a.dist-b.dist||b.w.conf-a.w.conf);return c[0]?{value:c[0].v,conf:c[0].w.conf}:null};
+  for(const dw of words){const ds=arabicDigits(dw.text).replace(/-/g,'/');if(!/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(ds))continue;const date=parseDisplayDate(ds,month,dmap);if(!date)continue;const y=cy(dw),tolY=Math.max(14,dw.height*.9),rowWords=words.filter(w=>Math.abs(cy(w)-y)<=tolY),basic=pick(rowWords,basicX,Math.max(105,pageW*.055)),challenge=pick(rowWords,challengeX,Math.max(135,pageW*.07));if(basic)found.set(date,{basic_target:basic.value,challenge_target:challenge?.value??null,_basic_conf:basic.conf,_challenge_conf:challenge?.conf??0})}
+  return found;
+}
+function mergeTargetMaps(dest,src){
+  for(const [date,row] of src){const old=dest.get(date);if(!old){dest.set(date,row);continue}const merged={...old};if(row.basic_target===old.basic_target)merged._basic_conf=Math.max(old._basic_conf||0,row._basic_conf||0);else if((row._basic_conf||0)>(old._basic_conf||0)){merged.basic_target=row.basic_target;merged._basic_conf=row._basic_conf||0}if(row.challenge_target!=null){if(old.challenge_target==null||(row._challenge_conf||0)>(old._challenge_conf||0)){merged.challenge_target=row.challenge_target;merged._challenge_conf=row._challenge_conf||0}}dest.set(date,merged)}
+  return dest;
+}
+async function parseImageFiles(files){
+  await loadExternalScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
+  const msg=tf$('monthlyTargetParseMsg'),combined=new Map(),worker=await Tesseract.createWorker('eng');
+  try{try{await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'})}catch{}for(let i=0;i<files.length;i++){if(msg)msg.innerHTML=`<div class="notice">جاري قراءة الصورة ${i+1} من ${files.length}...</div>`;const result=await worker.recognize(files[i],{},{text:true,tsv:true}),found=parseOcrTsv(result.data?.tsv||'');mergeTargetMaps(combined,found)}if(!combined.size)throw Error('لم أتمكن من استخراج المستهدفات من الصورة. تأكد أن أعمدة Date و Basic Target ظاهرة بوضوح.');return combined}finally{await worker.terminate()}
+}'''
+          s=s[:start]+new_block+s[end:]
+
+          start=s.index('async function monthlyTargetFileChanged(e){')
+          end=s.index('\n\nfunction resetImport()', start)
+          new_handler=r'''async function monthlyTargetFileChanged(e){
+  const files=[...(e.target.files||[])];if(!files.length)return;const images=files.filter(f=>f.type.startsWith('image/')),excels=files.filter(f=>/\.(xlsx|xlsm)$/i.test(f.name));const msg=tf$('monthlyTargetParseMsg'),review=tf$('monthlyTargetReview');if(review)review.classList.add('hidden');if(msg)msg.innerHTML='<div class="notice">جاري قراءة الملف...</div>';
+  try{if(images.length&&excels.length)throw Error('اختر Excel وحده أو صورة/صور فقط، ولا تخلط النوعين في عملية واحدة');if(excels.length){if(files.length!==1)throw Error('ارفع ملف Excel واحدًا فقط');targetSourceType='excel';targetSourceName=files[0].name;targetDraft=buildDraft(await parseExcelFile(files[0]))}else if(images.length===files.length){targetSourceType='image';targetSourceName=files.map(f=>f.name).join(' + ');targetDraft=buildDraft(await parseImageFiles(files))}else throw Error('نوع الملف غير مدعوم');if(msg)msg.innerHTML='';renderReview()}catch(err){if(msg)msg.innerHTML=`<div class="notice err">${safe(err.message)}</div>`}
+}'''
+          s=s[:start]+new_handler+s[end:]
+          p.write_text(s)
+          PY
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add monthly-targets.js
+          git diff --cached --quiet || git commit -m "Fix Power BI image target extraction"
+          git push
