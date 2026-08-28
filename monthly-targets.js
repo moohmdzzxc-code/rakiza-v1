@@ -61,8 +61,8 @@ function ensureTargetUi(){
   card.innerHTML=`<div class="title">مستهدفات الشهر</div>
     <div id="monthlyTargetState"><div class="mut">تحميل...</div></div>
     <div id="monthlyTargetImport" class="hidden">
-      <div class="notice">في بداية الشهر ارفع ملف المستهدفات مرة واحدة. يقبل Excel أو صورة واضحة من تقرير المستهدفات. إذا كان الجدول موزعًا على أكثر من لقطة بسبب التمرير، اختر جميع الصور معًا، ثم راجع الأرقام قبل الاعتماد.</div>
-      <div class="field"><label>ملف Excel أو صورة / صور المستهدفات</label><input id="monthlyTargetFile" type="file" multiple accept=".xlsx,.xlsm,image/png,image/jpeg,image/webp"></div>
+      <div class="notice">في بداية الشهر ارفع ملف Excel للمستهدفات مرة واحدة، ثم راجع الأرقام قبل الاعتماد.</div>
+      <div class="field"><label>ملف Excel للمستهدفات</label><input id="monthlyTargetFile" type="file" accept=".xlsx,.xlsm"></div>
       <div id="monthlyTargetParseMsg"></div>
       <div id="monthlyTargetReview" class="hidden" style="margin-top:12px"></div>
     </div>`;
@@ -129,63 +129,6 @@ async function parseExcelFile(file){
   return found;
 }
 
-function loadExternalScript(src){return new Promise((resolve,reject)=>{if(window.Tesseract)return resolve();let s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(Error('تعذر تحميل أداة قراءة الصورة'));document.head.appendChild(s)})}
-function ocrStrictNum(v){
-  let s=arabicDigits(v).trim().replace(/\s/g,'').replace(/[−–—]/g,'-');
-  if(!/^-?\d[\d,]*(?:\.\d+)?$/.test(s))return null;
-  return num(s);
-}
-function parseOcrTsv(tsv){
-  const month=activeMonth(),dmap=dateMaps(month),found=new Map(),raw=String(tsv||'').split(/\r?\n/).filter(Boolean);if(raw.length<2)return found;
-  const hdr=raw[0].split('\t'),ix=n=>hdr.indexOf(n),iLevel=ix('level'),iLeft=ix('left'),iTop=ix('top'),iWidth=ix('width'),iHeight=ix('height'),iConf=ix('conf'),iText=ix('text');
-  if([iLevel,iLeft,iTop,iWidth,iHeight,iText].some(i=>i<0))return found;
-  const all=raw.slice(1).map(line=>{const a=line.split('\t');return{level:Number(a[iLevel]),left:Number(a[iLeft])||0,top:Number(a[iTop])||0,width:Number(a[iWidth])||0,height:Number(a[iHeight])||0,conf:Number(a[iConf])||0,text:(a[iText]||'').trim()}}),words=all.filter(r=>r.level===5&&r.text);
-  const page=all.find(r=>r.level===1),pageW=page?.width||Math.max(1,...words.map(r=>r.left+r.width)),cx=r=>r.left+r.width/2,cy=r=>r.top+r.height/2,low=r=>String(r.text||'').toLowerCase();
-  const headerCenter=label=>{const bases=words.filter(r=>low(r)===label);for(const b of bases){const targets=words.filter(r=>low(r)==='target'&&cx(r)>cx(b)&&Math.abs(cy(r)-cy(b))<18).sort((a,z)=>cx(a)-cx(z));if(targets.length)return(cx(b)+cx(targets[0]))/2}return null};
-  const basicX=headerCenter('basic')??pageW*.295,challengeX=headerCenter('challenge')??pageW*.578;
-  const pick=(rowWords,x,tol)=>{const c=rowWords.map(w=>({w,v:ocrStrictNum(w.text),dist:Math.abs(cx(w)-x)})).filter(z=>z.v!==null&&z.v>=0&&z.dist<=tol).sort((a,b)=>a.dist-b.dist||b.w.conf-a.w.conf);return c[0]?{value:c[0].v,conf:c[0].w.conf}:null};
-  for(const dw of words){const ds=arabicDigits(dw.text).replace(/-/g,'/');if(!/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(ds))continue;const date=parseDisplayDate(ds,month,dmap);if(!date)continue;const y=cy(dw),tolY=Math.max(14,dw.height*.9),rowWords=words.filter(w=>Math.abs(cy(w)-y)<=tolY),basic=pick(rowWords,basicX,Math.max(105,pageW*.055)),challenge=pick(rowWords,challengeX,Math.max(135,pageW*.07));if(basic)found.set(date,{basic_target:basic.value,challenge_target:challenge?.value??null,_basic_conf:basic.conf,_challenge_conf:challenge?.conf??0})}
-  return found;
-}
-function parseOcrTextFallback(text){
-  const month=activeMonth(),dmap=dateMaps(month),found=new Map();
-  for(const raw of String(text||'').split(/\r?\n/)){
-    let line=arabicDigits(raw).replace(/[−–—]/g,'-').replace(/(\d)\s+(\d)(?=\s*\/)/g,'$1$2').replace(/\s*\/\s*/g,'/').replace(/\s+/g,' ').trim();
-    const dm=line.match(/\b(\d{1,2}\/\d{1,2}\/\d{2,4})\b/);if(!dm)continue;
-    const date=parseDisplayDate(dm[1],month,dmap);if(!date)continue;
-    const rest=line.slice((dm.index||0)+dm[0].length);
-    const vals=(rest.match(/-?\d[\d,]*(?:\.\d+)?/g)||[]).map(ocrStrictNum).filter(v=>v!==null);
-    if(vals.length<2)continue;
-    let basic=null,challenge=null;
-    if(vals.length>=3&&vals[1]>=0&&vals[2]>=0)basic=vals[2];
-    else if(vals[1]>=0)basic=vals[1];
-    if(basic===null)continue;
-    if(vals.length>=5){
-      const actual=(vals.length>=3&&vals[1]>=0&&vals[2]>=0)?vals[1]:null;
-      if(actual!==null){
-        for(let i=3;i<vals.length-1;i++){
-          const c=vals[i];if(c<=0)continue;
-          for(let j=i+1;j<vals.length;j++)if(Math.abs((actual-c)-vals[j])<=2){challenge=c;break}
-          if(challenge!==null)break;
-        }
-      }else{
-        for(let i=2;i<vals.length-1;i++)if(vals[i]>0&&Math.abs(vals[i]+vals[i+1])<=2){challenge=vals[i];break}
-      }
-    }
-    found.set(date,{basic_target:basic,challenge_target:challenge,_basic_conf:1,_challenge_conf:challenge===null?0:1});
-  }
-  return found;
-}
-function mergeTargetMaps(dest,src){
-  for(const [date,row] of src){const old=dest.get(date);if(!old){dest.set(date,row);continue}const merged={...old};if(row.basic_target===old.basic_target)merged._basic_conf=Math.max(old._basic_conf||0,row._basic_conf||0);else if((row._basic_conf||0)>(old._basic_conf||0)){merged.basic_target=row.basic_target;merged._basic_conf=row._basic_conf||0}if(row.challenge_target!=null){if(old.challenge_target==null||(row._challenge_conf||0)>(old._challenge_conf||0)){merged.challenge_target=row.challenge_target;merged._challenge_conf=row._challenge_conf||0}}dest.set(date,merged)}
-  return dest;
-}
-async function parseImageFiles(files){
-  await loadExternalScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
-  const msg=tf$('monthlyTargetParseMsg'),combined=new Map(),worker=await Tesseract.createWorker('eng');
-  try{try{await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'})}catch{}for(let i=0;i<files.length;i++){if(msg)msg.innerHTML=`<div class="notice">جاري قراءة الصورة ${i+1} من ${files.length}...</div>`;const result=await worker.recognize(files[i],{},{text:true,tsv:true}),found=parseOcrTsv(result.data?.tsv||'');if(!found.size)mergeTargetMaps(found,parseOcrTextFallback(result.data?.text||''));mergeTargetMaps(combined,found)}if(!combined.size)throw Error('لم أتمكن من استخراج المستهدفات من الصورة. تأكد أن أعمدة Date و Basic Target ظاهرة بوضوح.');return combined}finally{await worker.terminate()}
-}
-
 function buildDraft(found){return monthDates(activeMonth()).map(d=>({target_date:d,basic_target:found.get(d)?.basic_target??'',challenge_target:found.get(d)?.challenge_target??''}))}
 function renderReview(){
   const box=tf$('monthlyTargetReview');if(!box)return;const missing=targetDraft.filter(r=>r.basic_target==='').length,recognized=targetDraft.length-missing;
@@ -197,8 +140,8 @@ function renderReview(){
 }
 
 async function monthlyTargetFileChanged(e){
-  const files=[...(e.target.files||[])];if(!files.length)return;const images=files.filter(f=>f.type.startsWith('image/')),excels=files.filter(f=>/\.(xlsx|xlsm)$/i.test(f.name));const msg=tf$('monthlyTargetParseMsg'),review=tf$('monthlyTargetReview');if(review)review.classList.add('hidden');if(msg)msg.innerHTML='<div class="notice">جاري قراءة الملف...</div>';
-  try{if(images.length&&excels.length)throw Error('اختر Excel وحده أو صورة/صور فقط، ولا تخلط النوعين في عملية واحدة');if(excels.length){if(files.length!==1)throw Error('ارفع ملف Excel واحدًا فقط');targetSourceType='excel';targetSourceName=files[0].name;targetDraft=buildDraft(await parseExcelFile(files[0]))}else if(images.length===files.length){targetSourceType='image';targetSourceName=files.map(f=>f.name).join(' + ');targetDraft=buildDraft(await parseImageFiles(files))}else throw Error('نوع الملف غير مدعوم');if(msg)msg.innerHTML='';renderReview()}catch(err){if(msg)msg.innerHTML=`<div class="notice err">${safe(err.message)}</div>`}
+  const file=e.target.files?.[0];if(!file)return;const msg=tf$('monthlyTargetParseMsg'),review=tf$('monthlyTargetReview');if(review)review.classList.add('hidden');if(msg)msg.innerHTML='<div class="notice">جاري قراءة ملف Excel...</div>';
+  try{if(!/\.(xlsx|xlsm)$/i.test(file.name))throw Error('ارفع ملف Excel بصيغة xlsx أو xlsm فقط');targetSourceType='excel';targetSourceName=file.name;targetDraft=buildDraft(await parseExcelFile(file));if(msg)msg.innerHTML='';renderReview()}catch(err){if(msg)msg.innerHTML=`<div class="notice err">${safe(err.message)}</div>`}
 }
 
 function resetImport(){targetDraft=[];targetSourceName='';targetSourceType='';const input=tf$('monthlyTargetFile');if(input)input.value='';if(tf$('monthlyTargetParseMsg'))tf$('monthlyTargetParseMsg').innerHTML='';tf$('monthlyTargetReview')?.classList.add('hidden')}
