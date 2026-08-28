@@ -16,32 +16,23 @@ jobs:
           from pathlib import Path
           p = Path('monthly-targets.js')
           s = p.read_text()
-
-          s = s.replace(
-              'في بداية الشهر ارفع ملف المستهدفات مرة واحدة. يقبل Excel أو صورة واضحة من تقرير المستهدفات. إذا كان الجدول موزعًا على أكثر من لقطة بسبب التمرير، اختر جميع الصور معًا، ثم راجع الأرقام قبل الاعتماد.',
-              'في بداية الشهر ارفع ملف Excel للمستهدفات مرة واحدة، ثم راجع الأرقام قبل الاعتماد.'
-          )
-          s = s.replace(
-              '<div class="field"><label>ملف Excel أو صورة / صور المستهدفات</label><input id="monthlyTargetFile" type="file" multiple accept=".xlsx,.xlsm,image/png,image/jpeg,image/webp"></div>',
-              '<div class="field"><label>ملف Excel للمستهدفات</label><input id="monthlyTargetFile" type="file" accept=".xlsx,.xlsm"></div>'
-          )
-
+          s = s.replace('في بداية الشهر ارفع ملف المستهدفات مرة واحدة. يقبل Excel أو صورة واضحة من تقرير المستهدفات. إذا كان الجدول موزعًا على أكثر من لقطة بسبب التمرير، اختر جميع الصور معًا، ثم راجع الأرقام قبل الاعتماد.','في بداية الشهر ارفع ملف Excel للمستهدفات مرة واحدة، ثم راجع الأرقام قبل الاعتماد.')
+          s = s.replace('<div class="field"><label>ملف Excel أو صورة / صور المستهدفات</label><input id="monthlyTargetFile" type="file" multiple accept=".xlsx,.xlsm,image/png,image/jpeg,image/webp"></div>','<div class="field"><label>ملف Excel للمستهدفات</label><input id="monthlyTargetFile" type="file" accept=".xlsx,.xlsm"></div>')
           start = s.find('function loadExternalScript(src){')
           end = s.find('function buildDraft(found){', start)
           if start != -1 and end != -1:
               s = s[:start] + s[end:]
-
           old_start = s.find('async function monthlyTargetFileChanged(e){')
           old_end = s.find('\n\nfunction resetImport()', old_start)
           if old_start == -1 or old_end == -1:
               raise SystemExit('monthlyTargetFileChanged block not found')
-
-          new_handler = '''async function monthlyTargetFileChanged(e){
-  const file=e.target.files?.[0];if(!file)return;const msg=tf$('monthlyTargetParseMsg'),review=tf$('monthlyTargetReview');if(review)review.classList.add('hidden');if(msg)msg.innerHTML='<div class="notice">جاري قراءة ملف Excel...</div>';
-  try{if(!/\\.(xlsx|xlsm)$/i.test(file.name))throw Error('ارفع ملف Excel بصيغة xlsx أو xlsm فقط');targetSourceType='excel';targetSourceName=file.name;targetDraft=buildDraft(await parseExcelFile(file));if(msg)msg.innerHTML='';renderReview()}catch(err){if(msg)msg.innerHTML=`<div class="notice err">${safe(err.message)}</div>`}
-}'''
+          new_handler = (
+              "async function monthlyTargetFileChanged(e){\n"
+              "  const file=e.target.files?.[0];if(!file)return;const msg=tf$('monthlyTargetParseMsg'),review=tf$('monthlyTargetReview');if(review)review.classList.add('hidden');if(msg)msg.innerHTML='<div class=\"notice\">جاري قراءة ملف Excel...</div>';\n"
+              "  try{if(!/\\.(xlsx|xlsm)$/i.test(file.name))throw Error('ارفع ملف Excel بصيغة xlsx أو xlsm فقط');targetSourceType='excel';targetSourceName=file.name;targetDraft=buildDraft(await parseExcelFile(file));if(msg)msg.innerHTML='';renderReview()}catch(err){if(msg)msg.innerHTML=`<div class=\"notice err\">${safe(err.message)}</div>`}\n"
+              "}"
+          )
           s = s[:old_start] + new_handler + s[old_end:]
-
           p.write_text(s)
           PY
       - name: Syntax check
