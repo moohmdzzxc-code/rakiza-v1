@@ -10,29 +10,64 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Remove image import and keep Excel only
+      - name: Replace monthly target Excel reader with SheetJS
         run: |
           python - <<'PY'
           from pathlib import Path
           p = Path('monthly-targets.js')
           s = p.read_text()
-          s = s.replace('في بداية الشهر ارفع ملف المستهدفات مرة واحدة. يقبل Excel أو صورة واضحة من تقرير المستهدفات. إذا كان الجدول موزعًا على أكثر من لقطة بسبب التمرير، اختر جميع الصور معًا، ثم راجع الأرقام قبل الاعتماد.','في بداية الشهر ارفع ملف Excel للمستهدفات مرة واحدة، ثم راجع الأرقام قبل الاعتماد.')
-          s = s.replace('<div class="field"><label>ملف Excel أو صورة / صور المستهدفات</label><input id="monthlyTargetFile" type="file" multiple accept=".xlsx,.xlsm,image/png,image/jpeg,image/webp"></div>','<div class="field"><label>ملف Excel للمستهدفات</label><input id="monthlyTargetFile" type="file" accept=".xlsx,.xlsm"></div>')
-          start = s.find('function loadExternalScript(src){')
-          end = s.find('function buildDraft(found){', start)
-          if start != -1 and end != -1:
-              s = s[:start] + s[end:]
-          old_start = s.find('async function monthlyTargetFileChanged(e){')
-          old_end = s.find('\n\nfunction resetImport()', old_start)
-          if old_start == -1 or old_end == -1:
-              raise SystemExit('monthlyTargetFileChanged block not found')
-          new_handler = (
-              "async function monthlyTargetFileChanged(e){\n"
-              "  const file=e.target.files?.[0];if(!file)return;const msg=tf$('monthlyTargetParseMsg'),review=tf$('monthlyTargetReview');if(review)review.classList.add('hidden');if(msg)msg.innerHTML='<div class=\"notice\">جاري قراءة ملف Excel...</div>';\n"
-              "  try{if(!/\\.(xlsx|xlsm)$/i.test(file.name))throw Error('ارفع ملف Excel بصيغة xlsx أو xlsm فقط');targetSourceType='excel';targetSourceName=file.name;targetDraft=buildDraft(await parseExcelFile(file));if(msg)msg.innerHTML='';renderReview()}catch(err){if(msg)msg.innerHTML=`<div class=\"notice err\">${safe(err.message)}</div>`}\n"
-              "}"
-          )
-          s = s[:old_start] + new_handler + s[old_end:]
+          start = s.find('async function parseExcelFile(file){')
+          end = s.find('\n\nfunction buildDraft(found){', start)
+          if start == -1 or end == -1:
+              raise SystemExit('parseExcelFile block not found')
+          new_reader = r'''let sheetJsLoadPromise=null;
+function loadSheetJs(){
+  if(window.XLSX)return Promise.resolve();
+  if(sheetJsLoadPromise)return sheetJsLoadPromise;
+  sheetJsLoadPromise=new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload=()=>window.XLSX?resolve():reject(Error('تعذر تحميل أداة Excel'));
+    s.onerror=()=>reject(Error('تعذر تحميل أداة Excel'));
+    document.head.appendChild(s);
+  });
+  return sheetJsLoadPromise;
+}
+
+async function parseExcelFile(file){
+  await loadSheetJs();
+  let wb;
+  try{wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true})}
+  catch(err){console.error(err);throw Error('تعذر فتح ملف Excel. تأكد أن الملف بصيغة xlsx أو xlsm وغير تالف.')}
+  const month=activeMonth(),dmap=dateMaps(month),found=new Map();let headerFound=false;
+  for(const sheetName of (wb.SheetNames||[])){
+    const ws=wb.Sheets?.[sheetName];if(!ws)continue;
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+    let header=null;
+    for(let r=0;r<Math.min(rows.length,60)&&!header;r++){
+      const row=Array.isArray(rows[r])?rows[r]:[];let dc=-1,bc=-1,cc=-1;
+      for(let c=0;c<Math.min(row.length,30);c++){
+        const t=String(row[c]??'').trim();
+        if(dc<0&&isDateHeader(t))dc=c;
+        if(bc<0&&isBasicHeader(t))bc=c;
+        if(cc<0&&isChallengeHeader(t))cc=c;
+      }
+      if(dc>=0&&bc>=0)header={row:r,dateCol:dc,basicCol:bc,challengeCol:cc};
+    }
+    if(!header)continue;headerFound=true;
+    for(let r=header.row+1;r<rows.length;r++){
+      const row=Array.isArray(rows[r])?rows[r]:[];
+      const date=parseDisplayDate(row[header.dateCol],month,dmap);if(!date)continue;
+      const basic=num(row[header.basicCol]);if(basic===null)continue;
+      const challenge=header.challengeCol>=0?num(row[header.challengeCol]):null;
+      found.set(date,{basic_target:basic,challenge_target:challenge});
+    }
+  }
+  if(!headerFound)throw Error('لم أجد أعمدة Date و Basic Target داخل ملف Excel');
+  if(!found.size)throw Error('لم أجد مستهدفات مطابقة لأيام هذا الشهر داخل الملف');
+  return found;
+}'''
+          s = s[:start] + new_reader + s[end:]
           p.write_text(s)
           PY
       - name: Syntax check
@@ -42,5 +77,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add monthly-targets.js
-          git diff --cached --quiet || git commit -m "Make monthly target import Excel only"
+          git diff --cached --quiet || git commit -m "Use SheetJS for monthly target imports"
           git push
