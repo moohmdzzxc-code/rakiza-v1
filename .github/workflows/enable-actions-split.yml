@@ -30,3 +30,4 @@ jobs:
           git add index.html
           git diff --cached --quiet || git commit -m "Enable split actions interface"
           git push
+# trigger
