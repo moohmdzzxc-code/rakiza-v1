@@ -1,0 +1,51 @@
+name: Fix actions status storage mapping
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-actions-status-storage.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch action statuses to existing database values
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('actions-split.js')
+          s=p.read_text()
+          old="""function splitMaintenanceStatus(x){
+  if(isClosed(x))return 'تم التحقق والإغلاق';
+  if(['تم تسجيل العطل','تم رفع الطلب','قيد المتابعة','تمت الصيانة'].includes(x.action_status))return x.action_status;
+  if(x.action_status==='جديد')return 'تم تسجيل العطل';
+  return 'قيد المتابعة';
+}"""
+          new="""function splitMaintenanceStatus(x){
+  if(isClosed(x))return 'تم التحقق والإغلاق';
+  if(x.action_status==='جديد')return 'تم تسجيل العطل';
+  if(x.action_status==='تم الرفع')return 'تم رفع الطلب';
+  if(x.action_status==='قيد المتابعة')return 'قيد المتابعة';
+  if(x.action_status==='تم التنفيذ')return 'تمت الصيانة';
+  return 'قيد المتابعة';
+}"""
+          if old not in s:
+              raise SystemExit('maintenance status mapper block not found')
+          s=s.replace(old,new)
+          s=s.replace("action_status:'مفتوح'","action_status:'جديد'")
+          s=s.replace("action_status:'قيد المعالجة'","action_status:'قيد المتابعة'")
+          s=s.replace("action_status:'تم تسجيل العطل'","action_status:'جديد'")
+          s=s.replace("action_status:'تم رفع الطلب'","action_status:'تم الرفع'")
+          s=s.replace("action_status:'تمت الصيانة'","action_status:'تم التنفيذ'")
+          p.write_text(s)
+          PY
+      - name: Syntax check
+        run: node --check actions-split.js
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add actions-split.js
+          git diff --cached --quiet || git commit -m "Map split action states to existing DB statuses"
+          git push
