@@ -1,0 +1,35 @@
+name: Apply Rakiza assistant v0.1
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/add_rakiza_assistant_v01.py'
+      - '.github/workflows/apply-rakiza-assistant-v01.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/add_rakiza_assistant_v01.py
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert 'assistant-v01-2026-09-05' in s
+          assert 'id="assistant"' in s
+          assert 'openAssistant()' in s
+          assert 'assistantExportLastSales' in s
+          scripts=re.findall(r'<script(?:\s+[^>]*)?>(.*?)</script>',s,re.S)
+          inline=[x for x in scripts if x.strip()]
+          Path('/tmp/rakiza.js').write_text(inline[-1],encoding='utf-8')
+          PY
+          node --check /tmp/rakiza.js
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Add Rakiza assistant v0.1"
+          git push
