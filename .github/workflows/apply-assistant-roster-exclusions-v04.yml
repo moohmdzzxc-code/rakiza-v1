@@ -1,0 +1,40 @@
+name: Apply Rakiza roster exclusions v0.4
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/fix_assistant_roster_exclusions_v04.py'
+      - '.github/workflows/apply-assistant-roster-exclusions-v04.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Apply patch
+        run: python3 scripts/fix_assistant_roster_exclusions_v04.py
+      - name: Syntax check inline JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          blocks=re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',s,re.S)
+          js='\n'.join(blocks)
+          Path('/tmp/rakiza-inline.js').write_text(js,encoding='utf-8')
+          PY
+          node --check /tmp/rakiza-inline.js
+      - name: Commit patch
+        run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Support excluding employees from assistant roster"
+          git push
