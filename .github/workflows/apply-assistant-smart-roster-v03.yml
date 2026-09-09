@@ -1,0 +1,36 @@
+name: Apply Rakiza smart roster v0.3
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/add_assistant_smart_roster_v03.py'
+      - '.github/workflows/apply-assistant-smart-roster-v03.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/add_assistant_smart_roster_v03.py
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert 'assistant-v03-smart-roster-2026-09-09' in s
+          assert 'assistantParseRosterInstruction' in s
+          assert "assistantGenerateRosterNextWeek(q)" in s
+          assert 'ثلوث' in s
+          assert 'الجامعه' in s
+          scripts=re.findall(r'<script(?:\s+[^>]*)?>(.*?)</script>',s,re.S)
+          inline=[x for x in scripts if x.strip()]
+          Path('/tmp/rakiza.js').write_text(inline[-1],encoding='utf-8')
+          PY
+          node --check /tmp/rakiza.js
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet || git commit -m "Make assistant roster instructions smarter v0.3"
+          git push
