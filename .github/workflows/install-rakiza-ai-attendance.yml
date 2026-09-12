@@ -22,6 +22,7 @@ jobs:
           base64 -d .rakiza-attendance.b64 | gzip -d > rakiza-ai-attendance.js
           mkdir -p tests
           base64 -d .rakiza-attendance-test.b64 | gzip -d > tests/rakiza-ai-attendance.test.js
+          sed -i "s#require('./rakiza-ai-attendance.js')#require('../rakiza-ai-attendance.js')#" tests/rakiza-ai-attendance.test.js
 
       - name: Link attendance intelligence into Rakiza
         shell: python
