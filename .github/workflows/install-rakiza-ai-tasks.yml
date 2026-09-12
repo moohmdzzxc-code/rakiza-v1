@@ -58,6 +58,20 @@ jobs:
               s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
 
+      - name: Prioritize modification commands
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('rakiza-ai-tasks.js')
+          s=p.read_text(encoding='utf-8')
+          old="if(/افتح|ودني|روح/.test(n)&&/خطه اليوم|خطة اليوم/.test(n))return'navigate';if(/سوي|سو|جهز|ابني|انشئ|أنشئ|اقترح/.test(n)&&/خطه اليوم|خطة اليوم|مهمه|مهمة|مهام/.test(n))return'draft';if(/عدل|غير|غيّر|بدل|اضف|أضف/.test(n)&&/خطه اليوم|خطة اليوم|مهمه|مهمة|مهام/.test(n))return'change_draft';"
+          new="if(/افتح|ودني|روح/.test(n)&&/خطه اليوم|خطة اليوم/.test(n))return'navigate';if(/عدل|غير|غيّر|بدل|اضف|أضف/.test(n)&&/خطه اليوم|خطة اليوم|مهمه|مهمة|مهام/.test(n))return'change_draft';if(/سوي|سو|جهز|ابني|انشئ|أنشئ|اقترح/.test(n)&&/خطه اليوم|خطة اليوم|مهمه|مهمة|مهام/.test(n))return'draft';"
+          if new not in s:
+              if old not in s:
+                  raise SystemExit('task command priority anchor not found')
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+
       - name: Syntax checks
         run: |
           node --check rakiza-ai.js
