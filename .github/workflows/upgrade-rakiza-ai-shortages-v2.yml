@@ -20,6 +20,7 @@ jobs:
         run: |
           python scripts/upgrade-rakiza-ai-shortages-v2.py
           python scripts/upgrade-rakiza-ai-shortages-v2-hotfix.py
+          python scripts/upgrade-rakiza-ai-shortages-v2-hotfix2.py
 
       - name: Syntax check
         run: |
@@ -34,8 +35,9 @@ jobs:
           rm -f .github/workflows/upgrade-rakiza-ai-shortages-v2.yml
           rm -f scripts/upgrade-rakiza-ai-shortages-v2.py
           rm -f scripts/upgrade-rakiza-ai-shortages-v2-hotfix.py
+          rm -f scripts/upgrade-rakiza-ai-shortages-v2-hotfix2.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add rakiza-ai-shortages.js tests/rakiza-ai-shortages.test.js .github/workflows/upgrade-rakiza-ai-shortages-v2.yml scripts/upgrade-rakiza-ai-shortages-v2.py scripts/upgrade-rakiza-ai-shortages-v2-hotfix.py
+          git add rakiza-ai-shortages.js tests/rakiza-ai-shortages.test.js .github/workflows/upgrade-rakiza-ai-shortages-v2.yml scripts/upgrade-rakiza-ai-shortages-v2.py scripts/upgrade-rakiza-ai-shortages-v2-hotfix.py scripts/upgrade-rakiza-ai-shortages-v2-hotfix2.py
           git commit -m 'Upgrade Rakiza AI shortages intelligence v0.2'
           git push origin HEAD:main
