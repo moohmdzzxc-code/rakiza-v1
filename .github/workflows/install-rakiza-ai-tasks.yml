@@ -72,13 +72,14 @@ jobs:
               s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
 
-      - name: Polish noncompletion ranking wording
+      - name: Polish task response wording
         shell: python
         run: |
           from pathlib import Path
           p=Path('rakiza-ai-tasks.js')
           s=p.read_text(encoding='utf-8')
           s=s.replace("spec.groupBy==='section'?'الأقسام الأكثر تعثرًا':'أنواع المهام الأكثر تعثرًا'","spec.groupBy==='section'?'أكثر الأقسام تعثرًا':'أكثر أنواع المهام تعثرًا'")
+          s=s.replace('أي تعديل على خطة معتمدة يحتاج سببًا، وتبقى النسخة السابقة محفوظة.','أي عملية تعديل على خطة معتمدة تحتاج سببًا، وتبقى النسخة السابقة محفوظة.')
           p.write_text(s,encoding='utf-8')
 
       - name: Syntax checks
