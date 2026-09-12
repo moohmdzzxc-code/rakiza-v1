@@ -19,9 +19,9 @@ jobs:
 
       - name: Build readiness intelligence files
         run: |
-          base64 -d .rakiza-readiness.b64 | gzip -d > rakiza-ai-readiness.js
+          cat .rakiza-ready-part-00 .rakiza-ready-part-01 .rakiza-ready-part-02 .rakiza-ready-part-03 .rakiza-ready-part-04 .rakiza-ready-part-05 .rakiza-ready-part-06 .rakiza-ready-part-07 > rakiza-ai-readiness.js
           mkdir -p tests
-          base64 -d .rakiza-readiness-test.b64 | gzip -d > tests/rakiza-ai-readiness.test.js
+          cat .rakiza-ready-test-part-00 .rakiza-ready-test-part-01a .rakiza-ready-test-part-01b .rakiza-ready-test-part-01c .rakiza-ready-test-part-02 > tests/rakiza-ai-readiness.test.js
           sed -i "s#require('./rakiza-ai-readiness.js')#require('../rakiza-ai-readiness.js')#" tests/rakiza-ai-readiness.test.js
 
       - name: Link readiness intelligence into Rakiza
@@ -57,6 +57,7 @@ jobs:
       - name: Commit readiness intelligence
         run: |
           rm -f .rakiza-readiness.b64 .rakiza-readiness-test.b64
+          rm -f .rakiza-ready-part-* .rakiza-ready-test-part-*
           rm -f .github/workflows/install-rakiza-ai-readiness.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
