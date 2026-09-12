@@ -1,92 +1,32 @@
 name: Integrate Rakiza AI Tasks
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - 'rakiza-ai-tasks.js'
-      - 'tests/rakiza-ai-tasks.test.js'
-      - 'tests/rakiza-ai-tasks-reasoning.test.js'
-      - '.github/workflows/install-rakiza-ai-tasks.yml'
+      - rakiza-ai-tasks.js
+      - tests/rakiza-ai-tasks.test.js
+      - tests/rakiza-ai-tasks-reasoning.test.js
+      - scripts/integrate-rakiza-ai-tasks.py
+      - .github/workflows/install-rakiza-ai-tasks.yml
+
 permissions:
   contents: write
+
 jobs:
   integrate:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
-      - name: Patch tasks intelligence and reasoning integration
-        shell: python
-        run: |
-          from pathlib import Path
 
-          # Improve task conversational context and ranking dimensions.
-          p=Path('rakiza-ai-tasks.js')
-          s=p.read_text(encoding='utf-8')
-          old="if(ctx.employee&&/مهام|مهمه|مهمة|وش عليه|وش عنده/.test(n))return'assignments';return'list'}"
-          new="if(ctx.employee&&/مهام|مهمه|مهمة|وش عليه|وش عنده/.test(n))return'assignments';return ctx.task||'list'}"
-          if old not in s: raise SystemExit('detectTask context anchor not found')
-          s=s.replace(old,new,1)
-          old="if(STATE.last&&isFollow(n)&&!x.sales&&!x.shortages&&!x.readiness&&!x.attendance&&!x.actions)return true;return false}"
-          new="if(STATE.last&&(isFollow(n)||/^(?:قارن|حللها|حلله|وش عنها)/.test(n))&&!x.sales&&!x.shortages&&!x.readiness&&!x.attendance&&!x.actions)return true;return false}"
-          if old not in s: raise SystemExit('task router context anchor not found')
-          s=s.replace(old,new,1)
-          old="function detectSpec(text,analysis={}){const n=norm(text),prior=STATE.last?.spec||{},follow=isFollow(n),ctx=follow?prior:{},period=detectPeriod(text,ctx.period)||ctx.period||null,employee=detectEmployee(text,ctx.employee),category=detectCategory(text,ctx.category),section=detectSection(text,ctx.section),execution=detectExec(text,ctx.execution),task=detectTask(text,{...ctx,employee});return{task,period,employee,category,section,execution,limit:detectLimit(text),text:n}}"
-          new="function detectSpec(text,analysis={}){const n=norm(text),prior=STATE.last?.spec||{},follow=isFollow(n)||/^(?:قارن|حللها|حلله|وش عنها)/.test(n),ctx=follow?prior:{},period=detectPeriod(text,ctx.period)||ctx.period||null,employee=detectEmployee(text,ctx.employee),category=detectCategory(text,ctx.category),section=detectSection(text,ctx.section),execution=detectExec(text,ctx.execution),task=detectTask(text,{...ctx,employee}),groupBy=/قسم|اقسام|أقسام/.test(n)?'section':(/موظف|الفريق|مين/.test(n)&&task==='rank_noncompletion'?'employee':'category');return{task,period,employee,category,section,execution,groupBy,limit:detectLimit(text),text:n}}"
-          if old not in s: raise SystemExit('detectSpec anchor not found')
-          s=s.replace(old,new,1)
-          old="async function listHtml(spec){const p=spec.period||{type:'date',date:baseDate(),label:'اليوم'},data=await buildPeriod(p),rows=applySpec(data.tasks,spec);if(!rows.length){const salesOnly=data.days.find(d=>d.day_type==='يوم بيعي فقط');if(salesOnly)return`<b>${esc(periodLabel(p))}: يوم بيعي فقط.</b><div class=\"mut\">لا توجد مهام تشغيلية معتمدة لهذا اليوم.</div>`;return noData(p)}"
-          new="async function listHtml(spec){const p=spec.period||{type:'date',date:baseDate(),label:'اليوم'},data=await buildPeriod(p),rows=applySpec(data.tasks,spec);if(!rows.length){const salesOnly=data.days.length===1&&data.days[0].day_type==='يوم بيعي فقط';if(salesOnly)return`<b>${esc(periodLabel(p))}: يوم بيعي فقط.</b><div class=\"mut\">لا توجد مهام تشغيلية معتمدة لهذا اليوم.</div>`;return noData(p)}"
-          if old not in s: raise SystemExit('list sales-only anchor not found')
-          s=s.replace(old,new,1)
-          start=s.index('async function rankNoncompletionHtml(spec)')
-          end=s.index('async function rankAssignmentsHtml(spec)',start)
-          replacement="""async function rankNoncompletionHtml(spec){const p=spec.period||{type:'month',month:monthKey(baseDate()),label:'هذا الشهر'},data=await buildPeriod(p),rows=applySpec(data.tasks,{...spec,execution:null}).filter(r=>r.execution_final&&['partial','not_done'].includes(r.execution_kind));if(!rows.length)return`<b>لا توجد مهام غير مكتملة مسجلة — ${esc(periodLabel(p))}</b>`;const m=new Map();for(const r of rows){if(spec.groupBy==='employee'){for(const a of r.assignments){const key=String(a.employee_id),label=employeeName(a.employee)||'غير محدد',x=m.get(key)||{label,count:0,partial:0,notDone:0};x.count++;if(r.execution_kind==='partial')x.partial++;if(r.execution_kind==='not_done')x.notDone++;m.set(key,x)}}else{const label=spec.groupBy==='section'?(r.section||r.task.task_detail||'غير محدد'):r.category,x=m.get(label)||{label,count:0,partial:0,notDone:0};x.count++;if(r.execution_kind==='partial')x.partial++;if(r.execution_kind==='not_done')x.notDone++;m.set(label,x)}}const g=[...m.values()].sort((a,b)=>b.count-a.count).slice(0,spec.limit),title=spec.groupBy==='employee'?'الموظفين المكلفين بمهام غير مكتملة':spec.groupBy==='section'?'الأقسام الأكثر تعثرًا':'أنواع المهام الأكثر تعثرًا';return`<b>${title} — ${esc(periodLabel(p))}</b><div style=\"margin-top:9px\">${g.map((x,i)=>`<div class=\"task\"><b>${i+1}. ${esc(x.label)}</b><div class=\"mut\">مهام غير مكتملة: ${x.count} | جزئية: ${x.partial} | لم تنفذ: ${x.notDone}</div></div>`).join('')}</div>${spec.groupBy==='employee'?'<div class=\"mut\">العد هنا للمهام التي كان الموظف مكلفًا بها، ولا يعني أنه تسبب في عدم الإكمال.</div>':''}`}
-"""
-          s=s[:start]+replacement+s[end:]
-          p.write_text(s,encoding='utf-8')
+      - name: Apply tasks integration
+        run: python scripts/integrate-rakiza-ai-tasks.py
 
-          # Extend shared reasoning to recognize the new specialist safely.
-          p=Path('rakiza-ai-reasoning.js')
-          r=p.read_text(encoding='utf-8')
-          old="  operational_meaning:'لا تبحث عن الرقم فقط؛ اربط الرقم بمعناه التشغيلي دون تجاوز ما تثبته البيانات.'"
-          new="  task_execution_open_not_failure:'عدم وجود حالة تنفيذ نهائية لمهمة في يوم مفتوح لا يعني أنها لم تنفذ؛ التنفيذ النهائي يثبت عند إغلاق اليوم.',\n  operational_meaning:'لا تبحث عن الرقم فقط؛ اربط الرقم بمعناه التشغيلي دون تجاوز ما تثبته البيانات.'"
-          if old not in r: raise SystemExit('reasoning principle anchor not found')
-          r=r.replace(old,new,1)
-          old="  if(domain==='attendance')out.push('الخطة الأصلية تبقى محفوظة، والتغيير لا يمحوها.');\n  return out;"
-          new="  if(domain==='attendance')out.push('الخطة الأصلية تبقى محفوظة، والتغيير لا يمحوها.');\n  if(domain==='tasks'){out.push('اليوم المفتوح بلا حالة تنفيذ نهائية لا يُعامل كمهمة غير منفذة.');out.push('تعديل خطة اليوم لا يمحو النسخة السابقة، وأي تعديل معتمد يحتاج سببًا.');}\n  return out;"
-          if old not in r: raise SystemExit('reasoning constraints anchor not found')
-          r=r.replace(old,new,1)
-          old="  if(domain==='attendance'){\n    if(s.employee&&!s.employee.ambiguous)return{type:'employee',id:s.employee.id||null,label:s.employee.full_name||s.employee.name||null};\n    if(s.planStatus)return{type:'plan_status',label:s.planStatus};\n    if(s.attStatus)return{type:'attendance_status',label:s.attStatus};\n  }\n  return null;"
-          new="  if(domain==='attendance'){\n    if(s.employee&&!s.employee.ambiguous)return{type:'employee',id:s.employee.id||null,label:s.employee.full_name||s.employee.name||null};\n    if(s.planStatus)return{type:'plan_status',label:s.planStatus};\n    if(s.attStatus)return{type:'attendance_status',label:s.attStatus};\n  }\n  if(domain==='tasks'){\n    if(s.employee&&!s.employee.ambiguous)return{type:'employee',id:s.employee.id||null,label:s.employee.full_name||s.employee.name||null};\n    if(s.category)return{type:'task_category',label:s.category};\n    if(s.section)return{type:'section',label:s.section.name||s.section};\n    if(s.execution)return{type:'execution_status',label:s.execution};\n  }\n  return null;"
-          if old not in r: raise SystemExit('reasoning focus anchor not found')
-          r=r.replace(old,new,1)
-          old="    attendance:['خطة التواجد والحضور الفعلي وسجل تغييرات الخطة']\n  }[domain]||['بيانات ركيزة المسجلة'];"
-          new="    attendance:['خطة التواجد والحضور الفعلي وسجل تغييرات الخطة'],\n    tasks:['خطة اليوم المعتمدة والمهام والتكليفات وحالات التنفيذ عند الإغلاق']\n  }[domain]||['بيانات ركيزة المسجلة'];"
-          if old not in r: raise SystemExit('reasoning sources anchor not found')
-          r=r.replace(old,new,1)
-          old="    readiness:AI.readiness?.state?.last||null,\n    attendance:AI.attendance?.state?.last||null\n  };"
-          new="    readiness:AI.readiness?.state?.last||null,\n    attendance:AI.attendance?.state?.last||null,\n    tasks:AI.tasks?.state?.last||null\n  };"
-          if old not in r: raise SystemExit('reasoning snapshot anchor not found')
-          r=r.replace(old,new,1)
-          old="  for(const d of ['attendance','readiness','sales','shortages']){"
-          new="  for(const d of ['tasks','attendance','readiness','sales','shortages']){"
-          if old not in r: raise SystemExit('reasoning changed-domain anchor not found')
-          r=r.replace(old,new,1)
-          p.write_text(r,encoding='utf-8')
-
-          # Load tasks before the shared reasoning wrapper.
-          p=Path('index.html')
-          i=p.read_text(encoding='utf-8')
-          task='<script src="rakiza-ai-tasks.js"></script>'
-          reason='<script src="rakiza-ai-reasoning.js"></script>'
-          if task not in i:
-              if reason not in i: raise SystemExit('reasoning script anchor missing')
-              i=i.replace(reason,task+'\n'+reason,1)
-          if i.count(task)!=1: raise SystemExit('tasks script must exist exactly once')
-          p.write_text(i,encoding='utf-8')
       - name: Syntax checks
         run: |
           node --check rakiza-ai.js
@@ -103,6 +43,7 @@ jobs:
           node --check tests/rakiza-ai-reasoning.test.js
           node --check tests/rakiza-ai-tasks.test.js
           node --check tests/rakiza-ai-tasks-reasoning.test.js
+
       - name: Regression tests
         run: |
           node tests/rakiza-ai-shortages.test.js
@@ -112,24 +53,31 @@ jobs:
           node tests/rakiza-ai-reasoning.test.js
           node tests/rakiza-ai-tasks.test.js
           node tests/rakiza-ai-tasks-reasoning.test.js
-      - name: Verify task intelligence contract
-        shell: python
+
+      - name: Verify integration contract
         run: |
+          python - <<'PY'
           from pathlib import Path
           t=Path('rakiza-ai-tasks.js').read_text(encoding='utf-8')
-          required=['openExecutionNote','rankNoncompletionHtml','rankAssignmentsHtml','plan_changes','unsupported_rate','execution_final','change_draft']
-          missing=[x for x in required if x not in t]
-          if missing: raise SystemExit('Missing tasks contract: '+', '.join(missing))
+          for x in ['openExecutionNote','rankNoncompletionHtml','rankAssignmentsHtml','plan_changes','unsupported_rate','execution_final','change_draft']:
+              if x not in t:
+                  raise SystemExit('Missing tasks contract: '+x)
           r=Path('rakiza-ai-reasoning.js').read_text(encoding='utf-8')
           for x in ['task_execution_open_not_failure',"tasks:['خطة اليوم المعتمدة",'tasks:AI.tasks?.state?.last']:
-              if x not in r: raise SystemExit('Missing reasoning tasks integration: '+x)
+              if x not in r:
+                  raise SystemExit('Missing reasoning tasks integration: '+x)
           i=Path('index.html').read_text(encoding='utf-8')
           order=['rakiza-ai-attendance.js','rakiza-ai-tasks.js','rakiza-ai-reasoning.js']
           pos=[i.index(x) for x in order]
-          if pos!=sorted(pos): raise SystemExit('Unexpected tasks/reasoning script order')
-      - name: Commit tasks intelligence integration
+          if pos!=sorted(pos):
+              raise SystemExit('Unexpected tasks/reasoning script order')
+          print('Rakiza AI tasks integration contract passed')
+          PY
+
+      - name: Commit integration
         run: |
           rm -f .github/workflows/install-rakiza-ai-tasks.yml
+          rm -f scripts/integrate-rakiza-ai-tasks.py
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
