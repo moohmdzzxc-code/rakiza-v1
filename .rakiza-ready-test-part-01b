@@ -1,0 +1,17 @@
+اقص من مهام اليوم؟',false);rt('وش وضع الصيانة؟',false);
+// Periods
+per('هذا الشهر',x=>x?.month==='2026-09');per('الشهر الماضي',x=>x?.month==='2026-08');per('اغسطس',x=>x?.month==='2026-08');per('قارن اغسطس بسبتمبر',x=>x?.type==='compare'&&x.periods[0].month==='2026-08'&&x.periods[1].month==='2026-09');per('اليوم',x=>x?.date==='2026-09-13');per('البارح',x=>x?.date==='2026-09-12');per('ثلوث الماضي',x=>x?.type==='date');per('هذا الاسبوع',x=>x?.type==='range');per('الاسبوع الماضي',x=>x?.type==='range');
+// Intent / metrics
+sp('كم الجاهزية اليوم؟',x=>x.metric==='score'&&x.period.date==='2026-09-13');
+sp('متوسط الجاهزية هذا الشهر',x=>x.metric==='average_score'&&x.period.month==='2026-09');
+sp('وش البنود غير الجاهزة اليوم؟',x=>x.metric==='failed_items');
+sp('وش الملاحظات المفتوحة اليوم؟',x=>x.metric==='open_issues');
+sp('وش البنود الحرجة المفتوحة؟',x=>x.metric==='critical_open'&&x.criticalOnly);
+sp('وش اللي تعالج فورًا اليوم؟',x=>x.metric==='resolved_immediate');
+sp('كم مرة فشل بند الشبكة؟',x=>x.metric==='fail_count'&&x.item?.name==='الشبكة');
+sp('وش أكثر بند جاهزية فشل؟',x=>x.task==='rank'&&x.groupBy==='item'&&x.metric==='fail_count');
+sp('وش أكثر قسم يفشل في الجاهزية؟',x=>x.task==='rank'&&x.groupBy==='category'&&x.metric==='fail_count');
+sp('وش أكثر قسم يخصم من الجاهزية؟',x=>x.task==='rank'&&x.groupBy==='category'&&x.metric==='lost_weight');
+sp('وش أكثر بند يخصم من الجاهزية؟',x=>x.task==='rank'&&x.groupBy==='item'&&x.metric==='lost_weight');
+sp('وش البنود الحرجة اللي تكررت؟',x=>x.task==='rank'&&x.groupBy==='item'&&x.metric==='critical_fail_count'&&x.criticalOnly);
+sp('كم مرة صار عندنا
