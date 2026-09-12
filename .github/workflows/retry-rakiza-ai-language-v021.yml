@@ -1,0 +1,42 @@
+name: Retry Rakiza AI language context v0.2.1
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/retry_rakiza_ai_language_v021.py'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/retry_rakiza_ai_language_v021.py
+      - run: node --check rakiza-ai.js
+      - run: |
+          node - <<'JS'
+          global.window={app:{calendarDate:'2026-09-13',date:'2026-09-13',employees:[{id:'1',full_name:'عمار مثنى',active:true}]}};
+          global.document={getElementById:()=>null};global.show=()=>{};require('./rakiza-ai.js');
+          const ai=window.RakizaAI;
+          function check(q,intent){const a=ai.analyze(q);console.log(q,'=>',a.intent,a.entities.domain,a.entities.operation,a.entities.period);if(a.intent!==intent)throw new Error(`${q}: ${a.intent} != ${intent}`);return a}
+          check('خطة تواجد','roster_draft');
+          check('رتب دوام الشباب الأسبوع الجاي','roster_draft');
+          check('جهز جدول الأسبوع القادم','roster_draft');
+          check('خطة التوجد الاسبوع الجاي','roster_draft');
+          check('افتح خطة التواجد','navigate_roster');
+          check('عدل خطة التواجد وخلي عمار ثلوث إجازة','roster_change_draft');
+          const s=check('حلل مبيعات أغسطس','sales_analysis');if(s.entities.period?.month!=='2026-08')throw new Error('August period failed');
+          ai.state.context={intent:s.intent,entities:s.entities,lastMessage:s.raw};
+          const f=check('طيب صدرها اكسل','sales_export');if(f.entities.domain!=='sales')throw new Error('context domain failed');
+          check('وش أكثر منتج نقص عندي؟','shortages_analysis');
+          check('مين أكثر موظف غياب؟','attendance_analysis');
+          check('وش أكثر بند جاهزية فشل؟','readiness_analysis');
+          check('وش عندي للحين ما خلص؟','open_items_summary');
+          const c=ai.analyze('قارن أغسطس بسبتمبر');if(c.entities.period?.type!=='compare_months'||c.entities.period.months.length!==2)throw new Error('multi month compare failed');
+          JS
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add rakiza-ai.js
+          git diff --cached --quiet || git commit -m "Refine Rakiza AI Arabic operational intent v0.2.1"
+          git push
