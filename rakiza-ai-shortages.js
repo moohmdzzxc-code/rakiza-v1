@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const RSI_VERSION='0.1.0';
+const RSI_VERSION='0.2.0';
 const RSI_STATE={last:null,busy:false};
 
 const RSI_SECTIONS={
@@ -16,7 +16,7 @@ const RSI_SECTIONS={
   'الصيفي':['الصيفي','صيفي','summer'],
   'الشتوي':['الشتوي','شتوي','winter'],
   'العقال والطاقية':['العقال والطاقية','العقال والطاقيه','عقال','طاقية','طاقيه','egal','hat'],
-  'الجلابيات والبيجامات':['الجلابيات والبيجامات','جلابيات','جلابية','جلابيه','بيجامات','بيجامة','بيجامه','nightrobe','pajama','pigama'],
+  'الجلابيات والبيجامات':['الجلابيات والبيجامات','جلابيات','جلابية','جلابيه','بيجامات','بيجامة','بيجامه','بيجاما','البيجاما','nightrobe','pajama','pigama'],
   'الإكسسوارات والجوارب':['الإكسسوارات والجوارب','الاكسسوارات والجوارب','اكسسوارات','إكسسوارات','جوارب','accessories','socks']
 };
 
@@ -78,19 +78,30 @@ function detectSection(text){
 }
 
 function detectNamedMonths(text){
-  const n=norm(text),yearMatch=n.match(/\b(20\d{2})\b/),base=dateObj(baseDate()),year=yearMatch?Number(yearMatch[1]):base.getFullYear(),out=[];
-  for(const [name,m] of Object.entries(RSI_MONTHS)){const i=n.indexOf(norm(name));if(i>=0)out.push({key:`${year}-${String(m).padStart(2,'0')}`,name,index:i})}
-  const uniq=[];for(const x of out.sort((a,b)=>a.index-b.index))if(!uniq.some(y=>y.key===x.key))uniq.push(x);return uniq;
+  const n=norm(text),baseYear=dateObj(baseDate()).getFullYear(),defs=[
+    ['يناير',1],['فبراير',2],['مارس',3],['ابريل',4],['مايو',5],['يونيو',6],['يوليو',7],
+    ['اغسطس',8],['سبتمبر',9],['اكتوبر',10],['نوفمبر',11],['ديسمبر',12]
+  ],out=[];
+  for(const [name,m] of defs){
+    let from=0,i;
+    while((i=n.indexOf(name,from))>=0){
+      const after=n.slice(i+name.length,i+name.length+12),ym=after.match(/^\s*(20\d{2})/),year=ym?Number(ym[1]):baseYear;
+      out.push({key:`${year}-${String(m).padStart(2,'0')}`,name,index:i,year,month:m});
+      from=i+name.length;
+    }
+  }
+  out.sort((a,b)=>a.index-b.index);
+  const uniq=[];for(const x of out)if(!uniq.some(y=>y.index===x.index&&y.key===x.key))uniq.push(x);return uniq;
 }
 function detectPeriod(text){
   const n=norm(text),base=baseDate(),named=detectNamedMonths(text);
-  if(named.length>=2)return{type:'compare',periods:named.slice(0,2).map(x=>({type:'month',month:x.key,label:x.name}))};
+  if(named.length>=2)return{type:'compare',periods:named.slice(0,2).map(x=>({type:'month',month:x.key,label:`${x.name}${x.year!==dateObj(base).getFullYear()?` ${x.year}`:''}`}))};
   if(named.length===1)return{type:'month',month:named[0].key,label:named[0].name};
-  if(/هذا الشهر|هالشهر|الشهر الحالي/.test(n))return{type:'month',month:monthKey(base),label:'هذا الشهر'};
-  if(/الشهر الماضي|الشهر السابق|الشهر اللي فات/.test(n))return{type:'month',month:previousMonth(monthKey(base)),label:'الشهر الماضي'};
-  let m=n.match(/(?:اخر|آخر)\s*(\d+)\s*(?:يوم|ايام|أيام)/);if(m){const c=Math.max(1,Number(m[1]));return{type:'range',start:addDays(base,-c+1),end:base,label:`آخر ${c} يوم`}}
-  if(/هذا الاسبوع|هالاسبوع|الاسبوع الحالي/.test(n)){const s=sunday(base);return{type:'range',start:s,end:addDays(s,6),label:'هذا الأسبوع'}}
-  if(/الاسبوع الماضي|الاسبوع السابق|الاسبوع اللي فات/.test(n)){const s=addDays(sunday(base),-7);return{type:'range',start:s,end:addDays(s,6),label:'الأسبوع الماضي'}}
+  if(/هذا الشهر|هالشهر|الشهر الحالي|من بدايه الشهر|من اول الشهر/.test(n))return{type:'month',month:monthKey(base),label:'هذا الشهر'};
+  if(/الشهر الماضي|الشهر السابق|الشهر اللي فات|الشهر الي فات/.test(n))return{type:'month',month:previousMonth(monthKey(base)),label:'الشهر الماضي'};
+  let m=n.match(/اخر\s*(\d+)\s*(?:يوم|ايام)/);if(m){const c=Math.max(1,Number(m[1]));return{type:'range',start:addDays(base,-c+1),end:base,label:`آخر ${c} يوم`}}
+  if(/هذا الاسبوع|هالاسبوع|الاسبوع الحالي|الاسبوع ذا/.test(n)){const st=sunday(base);return{type:'range',start:st,end:addDays(st,6),label:'هذا الأسبوع'}}
+  if(/الاسبوع الماضي|الاسبوع السابق|الاسبوع اللي فات|الاسبوع الي فات/.test(n)){const st=addDays(sunday(base),-7);return{type:'range',start:st,end:addDays(st,6),label:'الأسبوع الماضي'}}
   if(/اليوم/.test(n))return{type:'date',date:base,label:'اليوم'};
   if(/امس|البارح/.test(n))return{type:'date',date:addDays(base,-1),label:'أمس'};
   return null;
@@ -119,59 +130,77 @@ function rowKey(row){return`${norm(rowSection(row))}|${norm(row.size||'')}`}
 function itemLabel(row){return String(row.size||'—')}
 
 function detectSpec(text,analysis){
-  const n=norm(text),section=detectSection(text),period=detectPeriod(text),prior=RSI_STATE.last;
-  const follow=/^(طيب|تمام|زين|وكمان|وبعدين|بعدها)|\b(منه|منها|فيه|فيها|هذي|هذا|نفسه|نفسها|صدرها|قارنها)\b/.test(n);
+  const n=norm(text),section=detectSection(text),prior=RSI_STATE.last;
+  let period=detectPeriod(text);
+  if(!period&&prior?.spec?.period?.type==='month'&&/(?:الشهر|والشهر) (?:اللي|الي) قبله|الشهر قبله/.test(n)){
+    const pm=previousMonth(prior.spec.period.month);period={type:'month',month:pm,label:'الشهر اللي قبله'};
+  }
+  const periodOnly=!!period&&/^(?:طيب |تمام |زين )?(?:هذا الشهر|هالشهر|الشهر|والشهر|هذا الاسبوع|هالاسبوع|الاسبوع|والاسبوع)/.test(n);
+  const follow=!!prior&&(
+    /^(طيب|تمام|زين|وكمان|وبعدين|بعدها|وبرضو|وبرضه|وكم|ووش|وايش|والشهر|والاسبوع)/.test(n)||
+    /(منه|منها|فيه|فيها|هذي|هذا|نفسه|نفسها|صدرها|قارنها|اللي قبله|الي قبله)/.test(n)||periodOnly
+  );
   const spec={task:'summary',metric:'count',groupBy:null,status:null,section,period,dateField:'first_detected_date',limit:5,focus:null,follow};
+  const explicit={task:false,metric:false,groupBy:false,status:false,period:!!period,section:!!section};
 
-  if(/صدر|تصدير|اكسل|excel|xlsx/.test(n))spec.task='export';
-  else if(/قارن|مقارنه|مقارنة|مقابل|الفرق بين/.test(n)||period?.type==='compare')spec.task='compare';
-  else if(/اكثر|أكثر|اعلى|أعلى|رتب|متكرر|يتكرر|تكرر|دايم/.test(n))spec.task='rank';
-  else if(/كم|عدد/.test(n))spec.task='metric';
-  else if(/وش|ايش|ورني|اعرض|طلع|هات|عطني|اي |أي /.test(n))spec.task='list';
+  if(/بانتظار (?:الاكسل|اكسل)|لسه ما صدر|ما صدرناه|ما تصدر|مفتوح.*اكسل/.test(n)){spec.status='pending_export';explicit.status=true}
+  else if(/صدرنا.*(?:لسه|ما).*طلب|مصدر.*(?:لسه|ما).*طلب|بانتظار.*طلب|تصدير.*بانتظار.*طلب/.test(n)){spec.status='exported_waiting_order';explicit.status=true}
+  else if(/طلبناه.*ما (?:وصل|جانا)|طلبنا.*ما (?:وصل|جانا)|ما وصل|ما جانا|بانتظار.*تغذ|قيد المتابع/.test(n)){spec.status='ordered';spec.dateField='ordered_date';explicit.status=true}
+  else if(/تم الطلب|انطلب/.test(n)){spec.status='ordered';spec.dateField='ordered_date';explicit.status=true}
+  else if(/تمت التغذ|تم تغذ|وصلت التغذ|وصلت البضاع|وش وصل|ايش وصل|تغذي|توفر بعد النقص/.test(n)){spec.status='supplied';spec.dateField='supplied_date';explicit.status=true}
+  else if(/مفتوح|مفتوحه|ما انطلب|قبل الطلب/.test(n)){spec.status='open';explicit.status=true}
+  else if(/غير منتهي|غير مكتمل|لسه ناقص|باقي ناقص|النواقص الحاليه/.test(n)){spec.status='unresolved';explicit.status=true}
 
-  if(/فرص|ضايع|ضائع|ضاعت|خسر|مفقود/.test(n))spec.metric='lost';
-  else if(/كمية.*طلب|كم طلبنا|المطلوب|كميه مطلوبه|كمية مطلوبة|requested/.test(n))spec.metric='requested';
-  else if(/الموجود|المتوفر|كم موجود|current/.test(n))spec.metric='current';
-  else if(/كم لها|من متى|منذ|مدة|مده|صار له|صار لها/.test(n))spec.metric='age';
-  else if(/متكرر|يتكرر|تكرر|كم مره|كم مرة|دايم|يرجع/.test(n))spec.metric='recurrence';
+  const exportCommand=/(?:^| )(?:صدر|تصدير) (?:لي|لنا|النواقص|النتيجه)|(?:^| )(?:صدرها|صدرهم)(?: لي)?(?:$| )|(?:سوي|جهز|طلع|اعمل|انشي).*اكسل|(?:ابي|ابغي|ابغا|اريد).*اكسل/.test(n);
+  const recurWords=/متكرر|يتكرر|تكرر|كل شوي|ينقطع|انقطاع|يرجع.*ناقص|دايم.*ينقص|ينقص.*دايم/.test(n);
+  if(/قارن|مقارنه|مقابل|الفرق بين/.test(n)||period?.type==='compare'){spec.task='compare';explicit.task=true}
+  else if(exportCommand){spec.task='export';explicit.task=true}
+  else if(/اكثر|اعلي|رتب/.test(n)||recurWords){spec.task='rank';explicit.task=true}
+  else if(/كم|عدد|قد ايش/.test(n)){spec.task='metric';explicit.task=true}
+  else if(/وش|ايش|ورني|اعرض|طلع|هات|عطني|وين/.test(n)){spec.task='list';explicit.task=true}
 
-  if(/بعد.*تغذ|بعد ما.*وصل|رجع.*بعد|يتكرر.*تغذ/.test(n)){spec.task='rank';spec.metric='recur_after_supply'}
+  if(/فرص|ضايع|ضائع|ضاعت|خسر|مفقود|راحت علينا/.test(n)){spec.metric='lost';explicit.metric=true}
+  else if(/كميه.*طلب|كم.*(?:حبه|قطعه).*طلب|كم طلبنا|كم طلبناه|كم طلبناها|المطلوب|كميه مطلوبه|requested/.test(n)){spec.metric='requested';explicit.metric=true}
+  else if(/باقي موجود|كم باقي|الموجود|المتوفر|كم موجود|current/.test(n)){spec.metric='current';explicit.metric=true}
+  else if(/كم لها|كم له|من متي|من يوم متي|منذ|مده|صار له|صار لها|قد ايش له|قد ايش لها|كم جلس|كم قعد|له كم يوم|لها كم يوم|لين وصل|حتي وصل/.test(n)){spec.metric='age';explicit.metric=true}
+  else if(recurWords||/كم مره|يرجع/.test(n)){spec.metric='recurrence';explicit.metric=true}
 
-  if(/بانتظار.*تصدير|ما.*صدر|مفتوح.*اكسل/.test(n)){spec.status='pending_export';spec.dateField='first_detected_date'}
-  else if(/صدرت.*ما.*طلب|مصدّر|مصدر.*بانتظار|بانتظار.*طلب/.test(n)){spec.status='exported_waiting_order';spec.dateField='first_detected_date'}
-  else if(/طلبناه.*ما.*وصل|طلبنا.*ما.*وصل|ما وصل|ماوصل|بانتظار.*تغذ|قيد المتابع/.test(n)){spec.status='ordered';spec.dateField='ordered_date'}
-  else if(/تم الطلب|طلبناه|طلبناها|انطلب|طلبات التغذ|وش طلبنا|كم طلبنا/.test(n)){spec.status='ordered';spec.dateField='ordered_date'}
-  else if(/تمت التغذ|وصلت التغذ|وصلت البضاع|وش وصل|ايش وصل|وش توفّر|توفر|تغذى|تغذي/.test(n)){spec.status='supplied';spec.dateField='supplied_date'}
-  else if(/مفتوح|مفتوحه|مفتوحة|ما انطلب|قبل الطلب/.test(n)){spec.status='open';spec.dateField='first_detected_date'}
-  else if(/غير منتهي|غير مكتمل|لسه ناقص|باقي ناقص|النواقص الحاليه|النواقص الحالية/.test(n)){spec.status='unresolved';spec.dateField='first_detected_date'}
+  if(spec.metric==='age'&&!explicit.task){spec.task='metric';explicit.task=true}
+  if(/بعد.*تغذ|بعد ما.*وصل|رجع.*بعد|يتكرر.*تغذ/.test(n)){spec.task='rank';spec.metric='recur_after_supply';explicit.task=true;explicit.metric=true}
 
-  if(/قسم|اقسام|أقسام|اي قسم|أي قسم/.test(n))spec.groupBy='section';
-  else if(/حاله|حالة|حالات/.test(n))spec.groupBy='status';
-  else if(/منتج|صنف|مقاس|اصناف|أصناف|منتجات/.test(n)||spec.task==='rank')spec.groupBy='item';
+  if(/قسم|اقسام|اي قسم/.test(n)||(spec.metric==='lost'&&/وين|اي قسم/.test(n))){spec.groupBy='section';explicit.groupBy=true}
+  else if(/حاله|حالات/.test(n)){spec.groupBy='status';explicit.groupBy=true}
+  else if(/منتج|صنف|مقاس|اصناف|منتجات/.test(n)||spec.task==='rank'){spec.groupBy='item';explicit.groupBy=true}
 
-  const lm=n.match(/(?:اكثر|أكثر|اعلى|أعلى|اول|أول|top)\s*(\d+)/);if(lm)spec.limit=Math.min(20,Math.max(1,Number(lm[1])));
-  if(/اخطر|أخطر/.test(n)){spec.task='rank';spec.metric='lost';spec.groupBy='item';spec.status='unresolved';spec.riskBy='lost'}
+  const lm=n.match(/(?:اكثر|اعلي|اول|top|اخطر)\s*(\d+)/);if(lm)spec.limit=Math.min(20,Math.max(1,Number(lm[1])));
+  if(/اخطر/.test(n)){spec.task='rank';spec.metric='lost';spec.groupBy='item';spec.status='unresolved';spec.riskBy='lost';explicit.task=explicit.metric=explicit.groupBy=explicit.status=true}
 
   if(follow&&prior){
-    if(!spec.section&&prior.spec?.section)spec.section=prior.spec.section;
-    if(!spec.period&&prior.spec?.period&&spec.task!=='compare')spec.period=prior.spec.period;
-    if(/منه|منها|فيه|فيها|نفسه|نفسها/.test(n)&&prior.focus)spec.focus=prior.focus;
-    if(/قارنها/.test(n)&&prior.spec?.period&&!spec.period)spec.period=prior.spec.period;
+    const ps=prior.spec||{};
+    if(!explicit.section&&ps.section)spec.section=ps.section;
+    if(!spec.period&&ps.period)spec.period=ps.period;
+    if(!explicit.task&&ps.task&&ps.task!=='export')spec.task=ps.task;
+    if(!explicit.metric&&ps.metric)spec.metric=ps.metric;
+    if(!explicit.groupBy&&ps.groupBy)spec.groupBy=ps.groupBy;
+    if(!explicit.status&&ps.status)spec.status=ps.status;
+    if(prior.focus)spec.focus=prior.focus;
   }
   return spec;
 }
-
 function isShortageLanguage(text,analysis){
   const n=norm(text),prior=RSI_STATE.last;
+  const strong=/نواقص|تغذ|صنف|اصناف|منتج|منتجات|مقاس|مقاسات|مخزون|بضاع|فرص (?:ضايعه|ضائعه|مفقوده)|طلبناه.*ما (?:وصل|جانا)|طلبنا.*ما (?:وصل|جانا)|بانتظار (?:الاكسل|اكسل)|تمت التغذ/.test(n);
+  const other=/فريق|موظف|موظفين|الحضور|غياب|تواجد|دوام|شفت|جاهزيه|مهام|مهمه|خطة اليوم|خطه اليوم|تنفيذ/.test(n);
+  if(other&&!strong)return false;
   if(analysis?.entities?.domain==='shortages')return true;
-  if(/نواقص|نقص|ناقص|ناقصة|تغذيه|تغذية|فرص ضايعه|فرص ضائعه|فرص مفقوده/.test(n))return true;
-  if(/مقاس|صنف|منتج/.test(n)&&/يتكرر|متكرر|نقص|طلب|وصل|فرص|موجود|مطلوب/.test(n))return true;
-  const sec=detectSection(text);if(sec&&/طلب|تغذ|وصل|ناقص|نقص|مقاس|صنف|منتج|فرص|موجود|مطلوب/.test(n))return true;
-  if(/\b\d{2,3}(?:[a-z]{1,4})?\b/i.test(n)&&/يتكرر|نقص|ناقص|طلب|وصل|فرص/.test(n))return true;
-  if(prior&&/^(طيب|تمام|زين|وكمان|وبعدين|بعدها)|\b(منه|منها|فيه|فيها|هذي|هذا|نفسه|نفسها|صدرها|قارنها)\b/.test(n))return true;
+  if(strong)return true;
+  if(/نقص|ناقص|ناقصه/.test(n)&&detectSection(text))return true;
+  if(/مقاس|صنف|منتج/.test(n)&&/يتكرر|متكرر|نقص|طلب|وصل|فرص|موجود|مطلوب|ينقطع/.test(n))return true;
+  const sec=detectSection(text);if(sec&&/طلب|تغذ|وصل|ناقص|نقص|مقاس|صنف|منتج|فرص|موجود|مطلوب|مخزون/.test(n))return true;
+  if(/\d{2,3}(?:[a-z]{1,4})?/i.test(n)&&/يتكرر|نقص|ناقص|طلب|وصل|فرص|موجود/.test(n))return true;
+  if(prior&&/^(طيب|تمام|زين|وكمان|وبعدين|بعدها|وبرضو|وبرضه|وكم|ووش|وايش|والشهر|والاسبوع)|(?:منه|منها|فيه|فيها|هذي|هذا|نفسه|نفسها|صدرها|قارنها|اللي قبله|الي قبله)/.test(n))return true;
   return false;
 }
-
 function detectStrongProduct(text,rows,spec){
   if(spec.focus?.type==='item')return spec.focus.key;
   const n=norm(text),toks=tokens(text).filter(t=>!RSI_STOP.has(t)&&t.length>=2);
@@ -189,7 +218,8 @@ function applySpec(rows,spec,text){
   let out=rows.slice();
   if(spec.section)out=out.filter(r=>norm(rowSection(r))===norm(spec.section));
   if(spec.focus?.type==='section')out=out.filter(r=>norm(rowSection(r))===norm(spec.focus.key));
-  const prod=detectStrongProduct(text,out,spec);if(prod)out=out.filter(r=>norm(r.size).includes(prod)||prod.includes(norm(r.size)));
+  if(spec.focus?.type==='item'&&spec.focus?.section)out=out.filter(r=>norm(rowSection(r))===norm(spec.focus.section));
+  const prod=detectStrongProduct(text,out,spec);if(prod)out=out.filter(r=>norm(r.size).includes(norm(prod))||norm(prod).includes(norm(r.size)));
   if(spec.focus?.type==='item'&&!prod)out=out.filter(r=>norm(r.size)===norm(spec.focus.key));
   if(spec.status==='open')out=out.filter(r=>statusKind(r)==='open');
   if(spec.status==='ordered')out=out.filter(r=>statusKind(r)==='ordered');
@@ -200,19 +230,18 @@ function applySpec(rows,spec,text){
   const dateField=spec.dateField||'first_detected_date';if(spec.period&&spec.period.type!=='compare')out=out.filter(r=>inPeriod(r[dateField]||r.first_detected_date,spec.period));
   return{rows:out,product:prod};
 }
-
 function aggregate(rows,groupBy,metric){
-  const m=new Map();
+  const m=new Map(),oneSection=new Set(rows.map(rowSection)).size===1;
   for(const r of rows){
-    const key=groupBy==='section'?rowSection(r):groupBy==='status'?displayStatus(r):itemLabel(r),id=norm(key);
-    if(!m.has(id))m.set(id,{key,label:key,count:0,lost:0,requested:0,current:0,rows:[]});
+    const raw=groupBy==='section'?rowSection(r):groupBy==='status'?displayStatus(r):itemLabel(r);
+    const id=groupBy==='item'?rowKey(r):norm(raw),label=groupBy==='item'?(oneSection?itemLabel(r):`${rowSection(r)} — ${itemLabel(r)}`):raw;
+    if(!m.has(id))m.set(id,{key:id,label,count:0,lost:0,requested:0,current:0,rows:[]});
     const x=m.get(id);x.count++;x.lost+=num(r.lost_opportunities);x.requested+=num(r.requested_qty);x.current+=num(r.current_qty);x.rows.push(r);
   }
   const arr=[...m.values()];
   const value=x=>metric==='lost'?x.lost:metric==='requested'?x.requested:metric==='current'?x.current:x.count;
   arr.forEach(x=>x.value=value(x));arr.sort((a,b)=>b.value-a.value||b.count-a.count||String(a.label).localeCompare(String(b.label),'ar'));return arr;
 }
-
 function recurAfterSupply(rows){
   const groups=new Map();for(const r of rows){const k=rowKey(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(r)}
   const out=[];
@@ -253,19 +282,18 @@ function rankHtml(rows,spec){
   let h=`<b>${spec.riskBy==='lost'?'الأعلى حسب الفرص الضائعة':'الترتيب حسب '+mName}</b><div class="mut" style="margin-top:6px">الفترة: ${esc(periodLabel(spec.period))}${spec.section?` | القسم: ${esc(spec.section)}`:''}</div><div style="margin-top:9px">`;
   h+=show.map((x,i)=>`<div class="task"><b>${i+1}. ${esc(x.label)}</b><div class="mut" style="margin-top:5px">${esc(mName)}: <b>${fmt(spec.metric==='recur_after_supply'?x.value:metricValue(x,spec.metric))}</b>${spec.metric!=='lost'&&x.lost?` | الفرص الضائعة: ${fmt(x.lost)}`:''}${spec.metric!=='requested'&&x.requested?` | الكمية المطلوبة: ${fmt(x.requested)}`:''}</div></div>`).join('');
   h+='</div>';if(spec.riskBy==='lost')h+='<div class="notice" style="margin-top:8px">فسرت «الأخطر» بالمقياس المباشر المسجل في ركيزة: أعلى فرص ضائعة، بدون اختراع درجة خطورة غير معتمدة.</div>';
-  return{html:h,focus:show[0]?{type:spec.groupBy==='section'?'section':'item',key:show[0].label,label:show[0].label}:null};
+  let focus=null;if(show[0]){if(spec.groupBy==='section')focus={type:'section',key:show[0].label,label:show[0].label};else if(show[0].rows?.[0])focus={type:'item',key:itemLabel(show[0].rows[0]),label:itemLabel(show[0].rows[0]),section:rowSection(show[0].rows[0])}}
+  return{html:h,focus};
 }
-
 function metricHtml(rows,spec){
   if(spec.metric==='age'){
     if(!rows.length)return'<b>لا توجد حالة مطابقة لحساب مدة النقص.</b>';
-    const active=rows.filter(r=>!['supplied','closed'].includes(statusKind(r))),show=(active.length?active:rows).slice().sort((a,b)=>String(a.first_detected_date||'').localeCompare(String(b.first_detected_date||''))).slice(0,10),today=baseDate();
-    return `<b>مدة النقص</b><div style="margin-top:9px">${show.map(r=>`${esc(rowSection(r))} — <b>${esc(itemLabel(r))}</b>: ${fmt(daysBetween(r.first_detected_date,today))} يوم منذ أول رصد (${esc(r.first_detected_date||'—')})`).join('<br>')}</div>`;
+    const show=rows.slice().sort((a,b)=>String(a.first_detected_date||'').localeCompare(String(b.first_detected_date||''))).slice(0,10),today=baseDate();
+    return `<b>مدة النقص</b><div style="margin-top:9px">${show.map(r=>{const done=['supplied','closed'].includes(statusKind(r)),end=done?(r.supplied_date||r.closed_date||String(r.closed_at||r.updated_at||'').slice(0,10)||today):today,label=done?'حتى التغذية/الإغلاق':'حتى اليوم';return `${esc(rowSection(r))} — <b>${esc(itemLabel(r))}</b>: ${fmt(daysBetween(r.first_detected_date,end))} يوم ${label} (أول رصد ${esc(r.first_detected_date||'—')})`}).join('<br>')}</div>`;
   }
   const total=spec.metric==='lost'?rows.reduce((s,r)=>s+num(r.lost_opportunities),0):spec.metric==='requested'?rows.reduce((s,r)=>s+num(r.requested_qty),0):spec.metric==='current'?rows.reduce((s,r)=>s+num(r.current_qty),0):rows.length;
   return `<b>${esc(metricName(spec.metric))}: ${fmt(total)}</b><div class="mut" style="margin-top:6px">من ${fmt(rows.length)} حالة مطابقة | الفترة: ${esc(periodLabel(spec.period))}${spec.section?` | القسم: ${esc(spec.section)}`:''}</div>`;
 }
-
 function compareHtml(rows,spec){
   const periods=spec.period?.type==='compare'?spec.period.periods:null;
   if(!periods||periods.length<2)return'<b>فهمت أنك تريد مقارنة، لكن أحتاج فترتين واضحتين مثل: «قارن أغسطس بسبتمبر».</b>';
