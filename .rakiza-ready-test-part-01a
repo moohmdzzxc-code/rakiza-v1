@@ -1,0 +1,16 @@
+{const fails=new Map((failMap[date]||[]).map(x=>[x[0],x]));return items.map(i=>{const f=fails.get(i.id);return{item_id:i.id,readiness_status:f?'غير جاهز':'جاهز',resolution_status:f?f[1]:'',note:f?f[2]:'',action_text:'',opening_check_items:i}})}
+const scoreByDate={};for(const d of dates){scoreByDate[d]=makeChecks(d).reduce((s,c)=>s+(c.readiness_status==='جاهز'?c.opening_check_items.weight:0),0)}
+const recent=dates.map((d,i)=>({id:'d'+i,work_date:d,operational_readiness:scoreByDate[d],status:'مغلق'}));
+global.app={calendarDate:'2026-09-13',date:'2026-09-13',items,recent,day:{...recent[recent.length-1],status:'مفتوح'},checks:makeChecks('2026-09-13')};
+const details=new Map(recent.map(r=>[r.id,{day:r,checks:makeChecks(r.work_date),attendance:[],roster_changes:[]}]))
+global.api=async(name,o)=>{if(name==='day')return details.get(o.q.id);throw Error('unexpected api '+name)};window.api=global.api;
+const els={assistantInput:{value:''},assistantChat:{html:'',insertAdjacentHTML(_p,h){this.html+=h},lastElementChild:{scrollIntoView(){}}}};global.document={getElementById:id=>els[id]||null};window.askRakizaAssistant=async()=>{els.assistantChat.html+='BASE'};
+require('./rakiza-ai-readiness.js');
+const R=window.RakizaAI.readiness;let pass=0;
+function ok(c,m,g){if(!c){console.error('FAIL',m,g||'');process.exit(1)}pass++}
+function sp(q,p){const x=R.detectSpec(q,{});ok(p(x),q,x);return x}
+function rt(q,e){const x=R.isReadinessLanguage(q,{});ok(x===e,q,x)}
+function per(q,p){const x=R.detectPeriod(q);ok(p(x),q,x);return x}
+
+// Router separation
+rt('وش ناقص في الجاهزية؟',true);rt('وش أكثر بند جاهزية فشل؟',true);rt('كم مرة الشبكة فشلت؟',true);rt('وش أكثر مشكلة تشغيلية تتكرر؟',true);rt('مين ناقص من الفريق اليوم؟',false);rt('وش جاهزية الفريق اليوم؟',false);rt('كم مبيعات اليوم؟',false);rt('وش أكثر صنف ناقص؟',false);rt('وش ن
