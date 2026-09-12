@@ -2,29 +2,22 @@ name: Integrate Rakiza AI Tasks
 
 on:
   push:
-    branches:
-      - main
     paths:
-      - rakiza-ai-tasks.js
-      - tests/rakiza-ai-tasks.test.js
-      - tests/rakiza-ai-tasks-reasoning.test.js
-      - scripts/integrate-rakiza-ai-tasks.py
-      - .github/workflows/install-rakiza-ai-tasks.yml
+      - '.github/workflows/install-rakiza-ai-tasks.yml'
 
 permissions:
   contents: write
 
 jobs:
   integrate:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: main
           fetch-depth: 0
 
-      - name: Apply tasks integration
+      - name: Apply tasks intelligence integration
         run: python scripts/integrate-rakiza-ai-tasks.py
 
       - name: Syntax checks
@@ -55,26 +48,26 @@ jobs:
           node tests/rakiza-ai-tasks-reasoning.test.js
 
       - name: Verify integration contract
+        shell: python
         run: |
-          python - <<'PY'
           from pathlib import Path
           t=Path('rakiza-ai-tasks.js').read_text(encoding='utf-8')
-          for x in ['openExecutionNote','rankNoncompletionHtml','rankAssignmentsHtml','plan_changes','unsupported_rate','execution_final','change_draft']:
-              if x not in t:
-                  raise SystemExit('Missing tasks contract: '+x)
+          required=['openExecutionNote','rankNoncompletionHtml','rankAssignmentsHtml','plan_changes','unsupported_rate','execution_final','change_draft']
+          missing=[x for x in required if x not in t]
+          if missing:
+              raise SystemExit('Missing tasks contract: '+', '.join(missing))
           r=Path('rakiza-ai-reasoning.js').read_text(encoding='utf-8')
-          for x in ['task_execution_open_not_failure',"tasks:['خطة اليوم المعتمدة",'tasks:AI.tasks?.state?.last']:
-              if x not in r:
-                  raise SystemExit('Missing reasoning tasks integration: '+x)
+          required_reasoning=['task_execution_open_not_failure',"tasks:['خطة اليوم المعتمدة",'tasks:AI.tasks?.state?.last']
+          missing=[x for x in required_reasoning if x not in r]
+          if missing:
+              raise SystemExit('Missing reasoning tasks integration: '+', '.join(missing))
           i=Path('index.html').read_text(encoding='utf-8')
           order=['rakiza-ai-attendance.js','rakiza-ai-tasks.js','rakiza-ai-reasoning.js']
           pos=[i.index(x) for x in order]
           if pos!=sorted(pos):
               raise SystemExit('Unexpected tasks/reasoning script order')
-          print('Rakiza AI tasks integration contract passed')
-          PY
 
-      - name: Commit integration
+      - name: Commit tasks intelligence integration
         run: |
           rm -f .github/workflows/install-rakiza-ai-tasks.yml
           rm -f scripts/integrate-rakiza-ai-tasks.py
