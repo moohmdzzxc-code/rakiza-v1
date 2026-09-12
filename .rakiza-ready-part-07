@@ -1,0 +1,9 @@
+الجاهزية.</b><div class="notice" style="margin-top:8px">لم نعتمد قالب تصدير للجاهزية داخل ركيزة AI حتى الآن، لذلك لن أنشئ ملفًا غير معتمد. القراءة والتحليل والمقارنة تعمل الآن.</div>'}
+async function answer(text,analysis){const spec=detectSpec(text,analysis);let html;if(spec.task==='export')html=exportHtml();else if(spec.task==='compare')html=await compareHtml(spec);else if(spec.task==='rank')html=await rankHtml(spec);else if(spec.task==='analysis')html=await analysisHtml(spec);else html=await metricHtml(spec);READY_STATE.last={text,spec};if(window.RakizaAI?.state)window.RakizaAI.state.context={intent:'readiness_intelligence',entities:{domain:'readiness',readiness:READY_STATE.last},lastMessage:text};return html}
+
+const baseAsk=window.askRakizaAssistant;
+window.askRakizaAssistant=async function(){const inp=document.getElementById('assistantInput'),q=inp?.value?.trim();if(!q)return;let analysis={};try{analysis=window.RakizaAI?.analyze?.(q)||{}}catch{}if(!isReadinessLanguage(q,analysis)){if(typeof baseAsk==='function')return baseAsk();return}if(READY_STATE.busy)return;READY_STATE.busy=true;if(inp)inp.value='';chat('user',esc(q));try{chat('assistant',await answer(q,analysis))}catch(e){chat('assistant',`<div class="notice err">تعذر تحليل الجاهزية: ${esc(e.message||String(e))}</div>`)}finally{READY_STATE.busy=false}}
+
+window.RakizaAI=window.RakizaAI||{};
+window.RakizaAI.readiness={version:RRI_VERSION,state:READY_STATE,isReadinessLanguage,detectCategory,detectItem,detectPeriod,detectSpec,dayRows,periodStats,detailsForPeriod,answer};
+})();
