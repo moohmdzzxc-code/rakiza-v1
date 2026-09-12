@@ -20,6 +20,20 @@ jobs:
       - name: Apply tasks intelligence integration
         run: python scripts/integrate-rakiza-ai-tasks.py
 
+      - name: Improve noncompletion language routing
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('rakiza-ai-tasks.js')
+          s=p.read_text(encoding='utf-8')
+          anchor="if(/مهام اليوم|مهامنا|المهام|مهمه اليوم|مهمة اليوم/.test(n))s+=5;"
+          extra="if(/(?:مهمه|مهمة).*(?:ما اكتملت|لم تكتمل|لم تنفذ|ما تنفذت|تعثر)/.test(n))s+=5;"
+          if extra not in s:
+              if anchor not in s:
+                  raise SystemExit('taskScore anchor not found')
+              s=s.replace(anchor,anchor+extra,1)
+          p.write_text(s,encoding='utf-8')
+
       - name: Syntax checks
         run: |
           node --check rakiza-ai.js
