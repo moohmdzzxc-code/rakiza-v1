@@ -22,6 +22,7 @@ jobs:
           cat .rakiza-sales-part1 .rakiza-sales-part2 .rakiza-sales-part3 .rakiza-sales-part4 | base64 -d | gzip -d > rakiza-ai-sales.js
           mkdir -p tests
           cat .rakiza-sales-test-part1 .rakiza-sales-test-part2 | base64 -d | gzip -d > tests/rakiza-ai-sales.test.js
+          sed -i "s#require('./rakiza-ai-sales.js')#require('../rakiza-ai-sales.js')#" tests/rakiza-ai-sales.test.js
 
       - name: Link sales intelligence into Rakiza
         shell: python
