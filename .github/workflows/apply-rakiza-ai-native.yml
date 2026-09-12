@@ -1,0 +1,36 @@
+name: Apply native Rakiza AI reset
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/reset_rakiza_ai_native.py'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python scripts/reset_rakiza_ai_native.py
+      - run: node --check rakiza-ai.js
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert 'rakiza-ai.js' in s
+          assert 'rakiza-ai-assistant' not in s
+          assert 'rakiza-ai-roster' not in s
+          assert 'assistantAiHistory' not in s
+          assert 'askRakizaAssistantLegacy' not in s
+          scripts=re.findall(r'<script(?:\s+[^>]*)?>(.*?)</script>',s,re.S)
+          inline=[x for x in scripts if x.strip()]
+          Path('/tmp/rakiza-inline.js').write_text(inline[-1],encoding='utf-8')
+          PY
+          node --check /tmp/rakiza-inline.js
+      - run: |
+          git config user.name "Rakiza Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html actions-split-dbfix.js
+          git diff --cached --quiet || git commit -m "Replace legacy assistant with native Rakiza AI"
+          git push
