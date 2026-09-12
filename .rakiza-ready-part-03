@@ -1,0 +1,40 @@
+e,status=null,rank={direction:'desc'};
+  if(isExportCommand(n))task='export';
+  else if(period?.type==='compare'||/قارن|مقارنه|مقارنة/.test(n))task='compare';
+  else if(/حلل|تحليل|شخص|شخّص|قيم الوضع|قيّم الوضع|كيف وضع|وش وضع|ملخص|خلاصه/.test(n))task='analysis';
+  if(/حرج/.test(n))criticalOnly=true;
+  if(/عولج فورا|تعالج فورا|معالجه فوريه|معالجة فورية/.test(n)){metric='resolved_immediate';status='resolved'}
+  else if(/مفتوح|يحتاج متابعه|ما تعالج|غير معالج/.test(n)&&/ملاحظ|ملاحظه|مشكل|مشكله|بند|جاهزيه|حرج/.test(n)){metric=criticalOnly?'critical_open':'open_issues';status='open'}
+  else if(/كم مره.*حرج|عدد.*حرج|حرج.*كم مره/.test(n)){metric='critical_fail_count'}
+  else if(color&&/كم يوم|عدد الايام|ايام/.test(n)){metric='color_days'}
+  else if(/متوسط.*جاهزي|متوسط.*تقييم|متوسط.*درجه/.test(n)){metric='average_score'}
+  else if(/اقل يوم|ادنى يوم|اسوا يوم/.test(n)){task='rank';metric='score';groupBy='day';rank.direction='asc'}
+  else if(/افضل يوم|اعلى يوم/.test(n)){task='rank';metric='score';groupBy='day';rank.direction='desc'}
+  else if(/اكثر قسم.*(?:خصم|خسر|نقص)|قسم.*(?:خصم|خسر).*اكثر/.test(n)){task='rank';metric='lost_weight';groupBy='category'}
+  else if(/اكثر بند.*(?:خصم|خسر|نقص)|بند.*(?:خصم|خسر).*اكثر/.test(n)){task='rank';metric='lost_weight';groupBy='item'}
+  else if(/اكثر قسم|اي قسم.*اكثر|وش القسم.*اكثر/.test(n)&&/فشل|غير جاهز|مشكل|يتكرر|تكرر/.test(n)){task='rank';metric='fail_count';groupBy='category'}
+  else if(/اكثر بند|اي بند.*اكثر|وش البند.*اكثر|مشكله تشغيليه.*تكرر|مشكله.*تكرر/.test(n)&&/فشل|غير جاهز|مشكل|يتكرر|تكرر/.test(n)){task='rank';metric=criticalOnly?'critical_fail_count':'fail_count';groupBy='item'}
+  else if(/البنود.*حرج.*تكرر|حرج.*تكرر/.test(n)){task='rank';metric='critical_fail_count';groupBy='item';criticalOnly=true}
+  else if(/البنود .*غير .*جاهز|البنود غير الجاهز|وش فشل|ايش فشل|وش اللي مو جاهز|وش غير جاهز|المشاكل اليوم/.test(n)){metric='failed_items'}
+  else if(/درجه الجاهزي|نسبه الجاهزي|تقييم الجاهزي|كم الجاهزي|الجاهزيه كم/.test(n)){metric='score'}
+  if(hasRank(n)&&task==='metric'&&(item||category)&&/فشل|تكرر|غير جاهز/.test(n)){task='rank';metric='fail_count';groupBy=item?'item':'category'}
+  if(item&&task==='metric'&&/كم مره|تكرر|فشل|غير جاهز/.test(n))metric=criticalOnly?'critical_fail_count':'fail_count';
+  if(category&&task==='metric'&&/كم مره|تكرر|فشل|غير جاهز/.test(n))metric='fail_count';
+  const shortFollow=/^(طيب|تمام|و|وال|طب|زين|اوكي|اوك|نفسها|منه|منها)/.test(n)||n.split(' ').length<=4;
+  if(prior&&shortFollow){
+    if(!period&&/(طيب|وال|و|نفس|منه|منها)/.test(n))period=prior.period;
+    if(!item&&prior.item&&!/قسم/.test(n))item=prior.item;
+    if(!category&&prior.category&&!/بند/.test(n))category=prior.category;
+    if(!color&&prior.color&&/كم يوم|نفس/.test(n))color=prior.color;
+    if(task==='metric'&&metric==='score'&&!/جاهزي|درجه|نسبه|تقييم/.test(n)){metric=prior.metric;groupBy=prior.groupBy;criticalOnly=criticalOnly||prior.criticalOnly}
+    if(/وش اكثر قسم|اي قسم/.test(n)){task='rank';groupBy='category';metric=prior.metric==='lost_weight'?'lost_weight':'fail_count';item=null}
+    if(/وش اكثر بند|اي بند/.test(n)){task='rank';groupBy='item';metric=prior.metric==='lost_weight'?'lost_weight':'fail_count'}
+    if(/كم مره/.test(n)&&item){task='metric';metric=criticalOnly?'critical_fail_count':'fail_count'}
+  }
+  if(!period&&task==='metric'&&['score','failed_items','open_issues','critical_open','resolved_immediate'].includes(metric))period={type:'latest',label:'أحدث جاهزية مسجلة'};
+  const itemOut=item?(item.name?{id:item.id,name:item.name,category:item.category,weight:num(item.weight),critical:!!item.critical}:{id:item.id,name:item.item_name_ar,category:item.category_name_ar,weight:num(item.weight),critical:!!item.critical}):null;
+  return{domain:'readiness',task,metric,groupBy,period,item:itemOut,category,color,criticalOnly,status,rank,analysis};
+}
+
+function isReadinessLanguage(text,analysis={}){const n=norm(text);const team=/فريق|موظف|موظفين|متواجد|زي رسمي|الزي|بطاقه|بطاقة|المظهر|حضور|غياب|متاخر|متأخر/.test(n);if(team&&/جاهزيه/.test(n)&&!/جاهزيه المعرض|الجاهزيه التشغيليه/.test(n))return false;
+  const otherS
