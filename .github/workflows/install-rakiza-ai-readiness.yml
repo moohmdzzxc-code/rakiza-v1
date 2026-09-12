@@ -1,0 +1,65 @@
+name: Install Rakiza AI Readiness
+
+on:
+  push:
+    paths:
+      - '.github/workflows/install-rakiza-ai-readiness.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Build readiness intelligence files
+        run: |
+          base64 -d .rakiza-readiness.b64 | gzip -d > rakiza-ai-readiness.js
+          mkdir -p tests
+          base64 -d .rakiza-readiness-test.b64 | gzip -d > tests/rakiza-ai-readiness.test.js
+          sed -i "s#require('./rakiza-ai-readiness.js')#require('../rakiza-ai-readiness.js')#" tests/rakiza-ai-readiness.test.js
+
+      - name: Link readiness intelligence into Rakiza
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="rakiza-ai-readiness.js"></script>'
+          if tag not in s:
+              anchor='<script src="rakiza-ai-sales.js"></script>'
+              if anchor not in s:
+                  raise SystemExit('Rakiza AI sales script anchor not found')
+              s=s.replace(anchor,anchor+'\n'+tag,1)
+          p.write_text(s,encoding='utf-8')
+
+      - name: Syntax checks
+        run: |
+          node --check rakiza-ai.js
+          node --check rakiza-ai-shortages.js
+          node --check rakiza-ai-sales.js
+          node --check rakiza-ai-readiness.js
+          node --check tests/rakiza-ai-shortages.test.js
+          node --check tests/rakiza-ai-sales.test.js
+          node --check tests/rakiza-ai-readiness.test.js
+
+      - name: Regression tests
+        run: |
+          node tests/rakiza-ai-shortages.test.js
+          node tests/rakiza-ai-sales.test.js
+          node tests/rakiza-ai-readiness.test.js
+
+      - name: Commit readiness intelligence
+        run: |
+          rm -f .rakiza-readiness.b64 .rakiza-readiness-test.b64
+          rm -f .github/workflows/install-rakiza-ai-readiness.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Add Rakiza AI readiness intelligence v0.1'
+          git push origin HEAD:main
