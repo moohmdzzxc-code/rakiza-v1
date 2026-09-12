@@ -1,3 +1,4 @@
+// Trigger integration after workflow registration.
 function norm(v){return String(v??'').toLowerCase().replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/[،,:;؛!?؟.()\[\]{}"']/g,' ').replace(/\s+/g,' ').trim()}
 const input={value:''};
 global.document={getElementById:(id)=>id==='assistantInput'?input:null};
