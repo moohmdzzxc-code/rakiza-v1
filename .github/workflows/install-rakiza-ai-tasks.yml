@@ -72,6 +72,15 @@ jobs:
               s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
 
+      - name: Polish noncompletion ranking wording
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('rakiza-ai-tasks.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("spec.groupBy==='section'?'الأقسام الأكثر تعثرًا':'أنواع المهام الأكثر تعثرًا'","spec.groupBy==='section'?'أكثر الأقسام تعثرًا':'أكثر أنواع المهام تعثرًا'")
+          p.write_text(s,encoding='utf-8')
+
       - name: Syntax checks
         run: |
           node --check rakiza-ai.js
