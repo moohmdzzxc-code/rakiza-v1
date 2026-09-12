@@ -1,0 +1,147 @@
+name: Audit Rakiza AI Shortages
+
+on:
+  push:
+    paths:
+      - '.github/workflows/audit-rakiza-ai-shortages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: node --check rakiza-ai-shortages.js
+      - name: Run language and behavior audit
+        shell: bash
+        run: |
+          node <<'NODE'
+          global.window={RakizaAI:{normalize:null,state:{}}};
+          global.app={calendarDate:'2026-09-13',date:'2026-09-13',sections:[
+            {id:'f',name:'الفاخر'},{id:'b',name:'الأعمال'},{id:'c',name:'الكلاسيك'},
+            {id:'u',name:'الداخليات'},{id:'s',name:'الأشمغة'},{id:'m',name:'الحركات'},
+            {id:'z',name:'الزخرفات'},{id:'r',name:'ري ثوب'},{id:'su',name:'الصيفي'},
+            {id:'w',name:'الشتوي'},{id:'e',name:'العقال والطاقية'},
+            {id:'n',name:'الجلابيات والبيجامات'},{id:'a',name:'الإكسسوارات والجوارب'}
+          ]};
+          const els={
+            assistantInput:{value:''},
+            assistantChat:{html:'',insertAdjacentHTML(_p,h){this.html+=h},lastElementChild:{scrollIntoView(){}}}
+          };
+          global.document={getElementById(id){return els[id]||null}};
+          global.api=async()=>[];
+          require('./rakiza-ai-shortages.js');
+          const S=window.RakizaAI.shortages;
+
+          let pass=0, fail=0;
+          const failures=[];
+          function ok(cond,label,got){
+            if(cond){pass++; console.log('PASS | '+label)}
+            else{fail++; const msg='FAIL | '+label+' | got='+JSON.stringify(got); failures.push(msg); console.log(msg)}
+          }
+          function spec(q,pred,label=q){let x=S.detectSpec(q,{});ok(!!pred(x),label,x);return x}
+          function route(q,expected,label=q){let x=S.isShortageLanguage(q,{});ok(x===expected,label,{routed:x});}
+          function section(q,expected,label=q){let x=S.detectSection(q);ok(x===expected,label,{section:x});}
+          function period(q,pred,label=q){let x=S.detectPeriod(q);ok(!!pred(x),label,x);}
+
+          console.log('\n=== A. Core intents / common Saudi phrasing ===');
+          spec('وش أكثر صنف يتكرر نقصه؟',x=>x.task==='rank'&&x.metric==='recurrence'&&x.groupBy==='item');
+          spec('أي منتج يتكرر عندي أكثر؟',x=>x.task==='rank'&&x.metric==='recurrence'&&x.groupBy==='item');
+          spec('وش المقاس اللي دايم يرجع ناقص؟',x=>x.task==='rank'&&x.metric==='recurrence');
+          spec('ايش المنتج اللي كل شوي ينقص؟',x=>x.task==='rank'&&x.metric==='recurrence','variant: كل شوي ينقص');
+          spec('اكثر شي ينقطع عندي',x=>x.task==='rank'&&x.metric==='recurrence','variant: ينقطع');
+          spec('وش أكثر نقص ضيع علينا فرص؟',x=>x.task==='rank'&&x.metric==='lost','variant: ضيع علينا فرص');
+          spec('أي قسم خسرنا فيه فرص أكثر؟',x=>x.task==='rank'&&x.metric==='lost'&&x.groupBy==='section');
+          spec('وين راحت علينا فرص أكثر؟',x=>x.task==='rank'&&x.metric==='lost'&&x.groupBy==='section','variant: وين راحت علينا فرص');
+          spec('كم فرصة ضاعت من الفاخر هذا الشهر؟',x=>x.task==='metric'&&x.metric==='lost'&&x.section==='الفاخر'&&x.period?.type==='month');
+          spec('كم كمية طلبناها من الفاخر؟',x=>x.task==='metric'&&x.metric==='requested'&&x.section==='الفاخر');
+          spec('كم حبة طلبنا من الأعمال؟',x=>x.task==='metric'&&x.metric==='requested'&&x.section==='الأعمال','variant: كم حبة طلبنا');
+          spec('كم باقي موجود من 60L؟',x=>x.task==='metric'&&x.metric==='current','variant: باقي موجود');
+          spec('صار له كم يوم ناقص؟',x=>x.task==='metric'&&x.metric==='age');
+          spec('قد ايش له ناقص؟',x=>x.task==='metric'&&x.metric==='age','variant: قد ايش له');
+
+          console.log('\n=== B. Workflow states ===');
+          spec('وش طلبناه وما وصل للحين؟',x=>x.status==='ordered');
+          spec('وش اللي طلبناه ولسه ما جانا؟',x=>x.status==='ordered','variant: ما جانا');
+          spec('وش عندنا بانتظار الاكسل؟',x=>x.status==='pending_export');
+          spec('وش اللي لسه ما صدرناه؟',x=>x.status==='pending_export');
+          spec('وش صدرنا ولسه ما طلبنا؟',x=>x.status==='exported_waiting_order','variant: صدرنا ولسه ما طلبنا');
+          spec('وش تم تغذيته هذا الشهر؟',x=>x.status==='supplied'&&x.period?.type==='month');
+          spec('وش باقي ناقص للحين؟',x=>x.status==='unresolved');
+
+          console.log('\n=== C. Period understanding ===');
+          period('هذا الشهر',x=>x?.type==='month'&&x.month==='2026-09');
+          period('الشهر اللي فات',x=>x?.type==='month'&&x.month==='2026-08');
+          period('هالأسبوع',x=>x?.type==='range');
+          period('الأسبوع ذا',x=>x?.type==='range','variant: الأسبوع ذا');
+          period('آخر ٧ أيام',x=>x?.type==='range');
+          period('من بداية الشهر',x=>x?.type==='month'&&x.month==='2026-09','variant: من بداية الشهر');
+          period('قارن أغسطس بسبتمبر',x=>x?.type==='compare'&&x.periods?.[0]?.month==='2026-08'&&x.periods?.[1]?.month==='2026-09');
+          period('قارن أغسطس 2025 بأغسطس 2026',x=>x?.type==='compare'&&x.periods?.[0]?.month==='2025-08'&&x.periods?.[1]?.month==='2026-08','same month across two years');
+
+          console.log('\n=== D. Section aliases ===');
+          section('وش ناقص في الفاخر؟','الفاخر');
+          section('نواقص business','الأعمال');
+          section('وش ناقص في U.W؟','الداخليات');
+          section('وش ناقص في الداخلي؟','الداخليات','variant: الداخلي');
+          section('وش وضع الشماغ؟','الأشمغة');
+          section('وش ناقص بالبيجاما؟','الجلابيات والبيجامات');
+
+          console.log('\n=== E. Domain routing / false positives ===');
+          route('وش أكثر صنف ناقص؟',true);
+          route('كم مبيعات اليوم؟',false);
+          route('مين ناقص من الفريق اليوم؟',false,'must not steal attendance: ناقص من الفريق');
+          route('كم موظف ناقص اليوم؟',false,'must not steal attendance: موظف ناقص');
+          route('وش ناقص في الجاهزية؟',false,'must not steal readiness');
+          route('وش ناقص من مهام اليوم؟',false,'must not steal tasks');
+          route('وش المطلوب اليوم؟',false);
+
+          console.log('\n=== F. Limits / ranking ===');
+          spec('عطني أعلى 3 نواقص حسب الفرص',x=>x.task==='rank'&&x.metric==='lost'&&x.limit===3);
+          spec('عطني أخطر 10 نواقص',x=>x.task==='rank'&&x.limit===10,'top N after أخطر');
+
+          console.log('\n=== G. Follow-up context ===');
+          S.state.last={spec:{task:'rank',metric:'recurrence',groupBy:'item',section:'الفاخر',period:{type:'month',month:'2026-09',label:'هذا الشهر'}},focus:{type:'item',key:'60L — أبيض',label:'60L — أبيض',section:'الفاخر'}};
+          spec('طيب كم فرصة ضاعت منه؟',x=>x.task==='metric'&&x.metric==='lost'&&x.focus?.key==='60L — أبيض'&&x.section==='الفاخر');
+          spec('وكم طلبنا منه؟',x=>x.task==='metric'&&x.metric==='requested'&&x.focus?.key==='60L — أبيض');
+          spec('طيب الشهر الماضي؟',x=>x.period?.month==='2026-08'&&x.focus?.key==='60L — أبيض','bare period follow-up should keep item focus');
+          spec('والشهر اللي قبله؟',x=>x.period?.type==='month','relative previous-to-context month');
+
+          console.log('\n=== H. End-to-end behavior with controlled shortage data ===');
+          const sample=[
+            {id:'1',section_id:'f',sections:{name:'الفاخر'},size:'60L',current_qty:0,requested_qty:8,lost_opportunities:8,first_detected_date:'2026-08-01',ordered_date:'2026-08-02',supplied_date:'2026-08-05',shortage_status:'تمت التغذية'},
+            {id:'2',section_id:'f',sections:{name:'الفاخر'},size:'60L',current_qty:0,requested_qty:2,lost_opportunities:4,first_detected_date:'2026-09-01',ordered_date:'2026-09-02',supplied_date:null,shortage_status:'تم الطلب'},
+            {id:'3',section_id:'b',sections:{name:'الأعمال'},size:'60L',current_qty:0,requested_qty:4,lost_opportunities:1,first_detected_date:'2026-09-03',ordered_date:null,supplied_date:null,shortage_status:'مفتوح',excel_exported_at:null},
+            {id:'4',section_id:'u',sections:{name:'الداخليات'},size:'رجالي — فرزاتشي — فنيلة — S',current_qty:0,requested_qty:8,lost_opportunities:3,first_detected_date:'2026-09-04',ordered_date:null,supplied_date:null,shortage_status:'مفتوح',excel_exported_at:null},
+            {id:'5',section_id:'c',sections:{name:'الكلاسيك'},size:'58XXL — أبيض',current_qty:0,requested_qty:4,lost_opportunities:2,first_detected_date:'2026-09-05',ordered_date:'2026-09-06',supplied_date:null,shortage_status:'تم الطلب'}
+          ];
+          global.api=async(path)=>path==='shortages'?sample:[];
+          async function ask(q){els.assistantChat.html='';els.assistantInput.value=q;await window.askRakizaAssistant();return els.assistantChat.html;}
+          (async()=>{
+            S.state.last=null;
+            let h=await ask('وش أكثر صنف يتكرر نقصه؟');
+            ok(/60L/.test(h),'E2E recurrence returns 60L',h.slice(-500));
+            ok(!/3 مرة/.test(h),'E2E must not merge same label across different sections into 3 repeats',h.slice(-600));
+
+            S.state.last=null;
+            h=await ask('كم فرصة ضاعت من الفاخر في سبتمبر؟');
+            ok(/4/.test(h),'E2E September lost opportunities in Fakher = 4',h.slice(-500));
+
+            S.state.last=null;
+            h=await ask('وش طلبناه وما وصل للحين؟');
+            ok(/60L/.test(h)&&/58XXL/.test(h),'E2E ordered-not-supplied lists both ordered rows',h.slice(-700));
+
+            S.state.last=null;
+            h=await ask('من متى كان 60L في الفاخر ناقص وتمت التغذية؟');
+            ok(/4 يوم|3 يوم/.test(h),'E2E supplied age should end at supplied date, not today',h.slice(-700));
+
+            console.log('\n=== AUDIT SUMMARY ===');
+            console.log('PASS='+pass+' FAIL='+fail+' TOTAL='+(pass+fail));
+            if(failures.length){console.log('\nFAILED CASES:'); failures.forEach(x=>console.log(x));}
+            console.log('\nAudit intentionally exits 0 so all weaknesses are visible in one run.');
+          })().catch(e=>{console.error('AUDIT HARNESS ERROR',e);process.exit(1)});
+          NODE
