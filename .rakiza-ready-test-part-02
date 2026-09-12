@@ -1,0 +1,17 @@
+ الطوارئ؟',x=>x.item?.name==='مخارج طوارئ');
+sp('وش مشاكل السلامة التشغيلية؟',x=>x.category==='السلامة التشغيلية');
+
+async function ask(q){R.state.last=null;els.assistantChat.html='';els.assistantInput.value=q;await window.askRakizaAssistant();return els.assistantChat.html}
+(async()=>{
+let s=await R.periodStats({type:'month',month:'2026-09',label:'سبتمبر'},true);ok(s.count===7,'September day count',s);ok(Math.round(s.average)===93,'September average',s.average);ok(s.failed===11,'September failed count',s.failed);ok(s.criticalOpen===3,'critical open count',s.criticalOpen);
+let h=await ask('كم مرة الشبكة فشلت هذا الشهر؟');ok(/3/.test(h),'network failed 3',h);
+h=await ask('وش أكثر بند جاهزية فشل هذا الشهر؟');ok(/الشبكة/.test(h)&&/3/.test(h),'top repeated network',h);
+h=await ask('وش أكثر قسم يخصم من الجاهزية هذا الشهر؟');ok(/الأجهزة والأنظمة/.test(h),'devices top lost category',h);
+h=await ask('وش البنود الحرجة المفتوحة هذا الشهر؟');ok(/مخارج طوارئ/.test(h)&&/فئات الصرف/.test(h)&&/برنامج البيع/.test(h),'critical list',h);
+h=await ask('وش اللي تعالج فورًا اليوم؟');ok(/أكياس/.test(h),'resolved immediate today',h);
+h=await ask('حلل جاهزية هذا الشهر');ok(/تحليل الجاهزية التشغيلية/.test(h)&&/الشبكة/.test(h),'analysis output',h);
+h=await ask('قارن جاهزية هذا الأسبوع بالأسبوع الماضي');ok(/مقارنة الجاهزية التشغيلية/.test(h),'compare output',h);
+// Context follow-up
+R.state.last={spec:R.detectSpec('كم مرة الشبكة فشلت هذا الشهر؟',{})};let x=R.detectSpec('طيب الشهر الماضي؟',{});ok(x.item?.name==='الشبكة'&&x.period.month==='2026-08','follow-up keeps item changes period',x);
+console.log('Rakiza AI readiness tests passed:',pass);
+})().catch(e=>{console.error(e);process.exit(1)});
