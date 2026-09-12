@@ -44,6 +44,20 @@ jobs:
           s=s.replace('/مين مسؤول|مين ماسك|مكلف|مسؤول عن/', '/مين مسوول|مين مسؤول|مين ماسك|مكلف|مسوول عن|مسؤول عن/')
           p.write_text(s,encoding='utf-8')
 
+      - name: Improve employee name parsing
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('rakiza-ai-tasks.js')
+          s=p.read_text(encoding='utf-8')
+          old="if(parts.some(p=>new RegExp(`(?:^| )${p}(?: |$)`).test(n)))hits.push(e)"
+          new="if(parts.some(p=>new RegExp(`(?:^| )(?:و|ل|ول)?${p}(?: |$)`).test(n)))hits.push(e)"
+          if new not in s:
+              if old not in s:
+                  raise SystemExit('employee parser anchor not found')
+              s=s.replace(old,new,1)
+          p.write_text(s,encoding='utf-8')
+
       - name: Syntax checks
         run: |
           node --check rakiza-ai.js
