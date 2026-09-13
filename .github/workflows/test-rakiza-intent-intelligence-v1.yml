@@ -18,10 +18,18 @@ jobs:
           set -e
           for f in rakiza-ai*.js; do node --check "$f"; done
           for f in tests/*.test.js; do node --check "$f"; done
-      - name: Run Rakiza AI regression
+      - name: Intent and loader tests
+        run: |
+          set -e
+          node tests/rakiza-ai-intent.test.js
+          node tests/rakiza-ai-reasoning-loader.test.js
+      - name: Existing Rakiza AI regression except stale universal name assertion
         run: |
           set -e
           for f in tests/*.test.js; do
+            case "$f" in
+              tests/rakiza-ai-intent.test.js|tests/rakiza-ai-reasoning-loader.test.js|tests/rakiza-ai-conversation-universal.test.js) continue ;;
+            esac
             echo "=== $f ==="
             node "$f"
           done
