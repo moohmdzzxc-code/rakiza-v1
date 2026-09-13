@@ -138,14 +138,17 @@ async function invokeForPeople(domain,text,analysis,people){
 }
 
 async function routeDomain(text,analysis,frame,domain,peopleOverride=null){
-  let people=peopleOverride||resolvedPeople(frame),unresolved=peopleOverride?peopleOverride.filter(x=>!x.resolved):unresolvedPeople(frame);
+  let people=peopleOverride||resolvedPeople(frame),unresolved=peopleOverride?peopleOverride.filter(x=>!x.resolved):unresolvedPeople(frame),invokeText=text,invokeAnalysis=analysis;
   if(['attendance','tasks'].includes(domain)&&unresolved.length){const html=beginClarification(domain,text,{people:peopleOverride||publicPeople(frame)});return{handled:true,html,clarifying:true}}
   if(['attendance','tasks'].includes(domain)){
     if(!people.length)people=syntheticPeopleFromContext(domain,frame);
     if(people.length>1){setActivePeople(domain,people);return{handled:true,html:await invokeForPeople(domain,text,analysis,people)}}
-    if(people.length===1)setActivePeople(domain,people);else setActivePeople(domain,[])
+    if(people.length===1){
+      setActivePeople(domain,people);
+      if(peopleOverride){invokeText=rewriteForPerson(text,people[0],peopleOverride);invokeAnalysis=safeAnalyze(invokeText);invokeAnalysis.entities=invokeAnalysis.entities||{};invokeAnalysis.entities.domain=domain}
+    }else setActivePeople(domain,[])
   }else if(C?.state?.context){C.state.context.activePeopleIds=[];C.state.context.activePersonId=null}
-  const r=await safeInvoke(domain,text,analysis);return{handled:true,html:r.ok?r.html:failureHtml(domain),failed:!r.ok}
+  const r=await safeInvoke(domain,invokeText,invokeAnalysis);return{handled:true,html:r.ok?r.html:failureHtml(domain),failed:!r.ok}
 }
 
 async function processPendingReply(text){
