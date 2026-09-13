@@ -24,7 +24,7 @@ jobs:
         run: |
           from pathlib import Path
 
-          # Natural-language coverage for action types and lifecycle questions.
+          # Natural-language coverage for action types, lifecycle, and subject matching.
           p=Path('rakiza-ai-actions.js')
           s=p.read_text(encoding='utf-8')
           s=s.replace("{key:'طلب دعم',aliases:['طلب دعم','دعم','دعم فني','مساندة']}","{key:'طلب دعم',aliases:['طلب دعم','طلبات الدعم','طلب الدعم','دعم','دعم فني','مساندة']}")
@@ -35,6 +35,11 @@ jobs:
           if extra not in s:
               if anchor not in s: raise SystemExit('actions result routing anchor not found')
               s=s.replace(anchor,extra+anchor,1)
+          old="const n=norm(text),g=genericWords(),tokens=n.split(' ').filter(t=>t.length>=3&&!g.has(t));let best=null,score=0,tie=false;"
+          new="const n=norm(text),g=genericWords(),raw=n.split(' ').filter(t=>t.length>=3&&!g.has(t)),tokens=[...new Set(raw.flatMap(t=>{const v=[t];if(t.startsWith('ال')&&t.length>4)v.push(t.slice(2));if(t.startsWith('لل')&&t.length>4)v.push(t.slice(2));return v}).filter(t=>t.length>=3&&!g.has(t)))];let best=null,score=0,tie=false;"
+          if new not in s:
+              if old not in s: raise SystemExit('actions focus token anchor not found')
+              s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
 
           # Load the actions specialist before shared reasoning.
