@@ -3,12 +3,11 @@
 
 /*
  * Browser entrypoint for Rakiza AI reasoning.
- * Production integration: Rakiza AI Conversation Intelligence v1.0.0.
- * The original shared reasoning implementation is preserved verbatim in
- * rakiza-ai-reasoning-core.js. Store Intelligence is loaded after it, then
- * the store reasoning bridge, and finally the central conversation layer.
- * This makes conversation understanding the outer language layer while all
- * approved specialist logic remains underneath it.
+ * Shared reasoning remains unchanged underneath the specialist brains.
+ * Store Intelligence and its reasoning bridge load next, then the approved
+ * conversation layer, then the universal conversation orchestrator v2.
+ * The universal layer becomes the outer execution/router layer so one broken
+ * specialist function cannot freeze the whole assistant.
  */
 
 if(typeof module!=='undefined'&&module.exports){
@@ -28,7 +27,9 @@ function loadScript(src,onload){
 loadScript('rakiza-ai-reasoning-core.js',()=>{
   loadScript('rakiza-ai-store-intelligence.js',()=>{
     loadScript('rakiza-ai-store-reasoning-bridge.js',()=>{
-      loadScript('rakiza-ai-conversation.js');
+      loadScript('rakiza-ai-conversation.js',()=>{
+        loadScript('rakiza-ai-conversation-universal.js');
+      });
     });
   });
 });
