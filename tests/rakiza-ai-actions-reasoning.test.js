@@ -4,7 +4,7 @@ const last={text:'وش وضع المكيف',spec:{task:'age',period:{type:'month
 const sandbox={console,window:{},document:{getElementById(){return null}},setTimeout,clearTimeout};sandbox.window=sandbox;
 sandbox.window.RakizaAI={normalize:v=>String(v??'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه'),analyze:t=>({entities:{}}),actions:{state:{last}}};
 sandbox.window.askRakizaAssistant=()=>{};
-vm.createContext(sandbox);vm.runInContext(fs.readFileSync('rakiza-ai-reasoning.js','utf8'),sandbox,{filename:'rakiza-ai-reasoning.js'});
+vm.createContext(sandbox);vm.runInContext(fs.readFileSync('rakiza-ai-reasoning-core.js','utf8'),sandbox,{filename:'rakiza-ai-reasoning-core.js'});
 const R=sandbox.window.RakizaAI.reasoning;
 ok(!!R,'reasoning exists');
 let c=R.makeCard('actions',last,'وش وضع المكيف');
