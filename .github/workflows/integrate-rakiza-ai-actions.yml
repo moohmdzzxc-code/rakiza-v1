@@ -43,6 +43,7 @@ jobs:
               s=s.replace(old,new,1)
           s=s.replace("if(/كم مره.*تصعيد|كم مرة.*تصعيد|عدد مرات.*تصعيد|متى.*تصعيد|تاريخ.*تصعيد/.test(n))return'unsupported_escalation_history';","if(/كم مره.*(?:تصعيد|تصعد|تصعّد)|كم مرة.*(?:تصعيد|تصعد|تصعّد)|عدد مرات.*(?:تصعيد|تصعد|تصعّد)|متى.*(?:تصعيد|تصعد|تصعّد)|تاريخ.*(?:تصعيد|تصعد|تصعّد)/.test(n))return'unsupported_escalation_history';")
           s=s.replace("if(/سبب التصعيد|ليش تصعد|لماذا تصعد/.test(n))return'escalation_reason';","if(/سبب (?:التصعيد|تصعيد)|ليش تصعد|لماذا تصعد/.test(n))return'escalation_reason';")
+          s=s.replace("ثم تعرض حالتها الحالية؛ ليست سجل أحداث تاريخي للحالات.","ثم تعرض الحالة الحالية لكل إجراء؛ وليست سجل أحداث تاريخي للحالات.")
           p.write_text(s,encoding='utf-8')
 
           # Load the actions specialist before shared reasoning.
