@@ -1,0 +1,85 @@
+name: Universal Rakiza conversation v2 validation
+
+on:
+  push:
+    branches:
+      - rakiza-ai-universal-conversation-v2
+    paths:
+      - .github/workflows/test-universal-rakiza-conversation-v2b.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply small integration patches
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('rakiza-ai-shortages.js')
+          s = p.read_text()
+          old = "window.RakizaAI.shortages={version:RSI_VERSION,state:RSI_STATE,detectSpec,detectSection,detectPeriod,isShortageLanguage};"
+          new = "window.RakizaAI.shortages={version:RSI_VERSION,state:RSI_STATE,detectSpec,detectSection,detectPeriod,isShortageLanguage,answer};"
+          if old not in s:
+              raise SystemExit('shortages export target not found')
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('rakiza-ai-conversation-universal.js')
+          s = p.read_text()
+          old = """async function routeDomain(text,analysis,frame,domain,peopleOverride=null){
+  let people=peopleOverride||resolvedPeople(frame),unresolved=peopleOverride?peopleOverride.filter(x=>!x.resolved):unresolvedPeople(frame);
+  if(['attendance','tasks'].includes(domain)&&unresolved.length){const html=beginClarification(domain,text,{people:peopleOverride||publicPeople(frame)});return{handled:true,html,clarifying:true}}
+  if(['attendance','tasks'].includes(domain)){
+    if(!people.length)people=syntheticPeopleFromContext(domain,frame);
+    if(people.length>1){setActivePeople(domain,people);return{handled:true,html:await invokeForPeople(domain,text,analysis,people)}}
+    if(people.length===1)setActivePeople(domain,people);else setActivePeople(domain,[])
+  }else if(C?.state?.context){C.state.context.activePeopleIds=[];C.state.context.activePersonId=null}
+  const r=await safeInvoke(domain,text,analysis);return{handled:true,html:r.ok?r.html:failureHtml(domain),failed:!r.ok}
+}"""
+          new = """async function routeDomain(text,analysis,frame,domain,peopleOverride=null){
+  let people=peopleOverride||resolvedPeople(frame),unresolved=peopleOverride?peopleOverride.filter(x=>!x.resolved):unresolvedPeople(frame),invokeText=text,invokeAnalysis=analysis;
+  if(['attendance','tasks'].includes(domain)&&unresolved.length){const html=beginClarification(domain,text,{people:peopleOverride||publicPeople(frame)});return{handled:true,html,clarifying:true}}
+  if(['attendance','tasks'].includes(domain)){
+    if(!people.length)people=syntheticPeopleFromContext(domain,frame);
+    if(people.length>1){setActivePeople(domain,people);return{handled:true,html:await invokeForPeople(domain,text,analysis,people)}}
+    if(people.length===1){
+      setActivePeople(domain,people);
+      if(peopleOverride){invokeText=rewriteForPerson(text,people[0],peopleOverride);invokeAnalysis=safeAnalyze(invokeText);invokeAnalysis.entities=invokeAnalysis.entities||{};invokeAnalysis.entities.domain=domain}
+    }else setActivePeople(domain,[])
+  }else if(C?.state?.context){C.state.context.activePeopleIds=[];C.state.context.activePersonId=null}
+  const r=await safeInvoke(domain,invokeText,invokeAnalysis);return{handled:true,html:r.ok?r.html:failureHtml(domain),failed:!r.ok}
+}"""
+          if old not in s:
+              raise SystemExit('universal routeDomain target not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Syntax check
+        shell: bash
+        run: |
+          set -e
+          for f in rakiza-ai*.js; do node --check "$f"; done
+          for f in tests/*.test.js; do node --check "$f"; done
+      - name: Run full Rakiza AI regression
+        shell: bash
+        run: |
+          set -e
+          for f in tests/*.test.js; do
+            echo "=== $f ==="
+            node "$f"
+          done
+      - name: Commit tested integration
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rakiza-ai-shortages.js rakiza-ai-conversation-universal.js
+          git commit -m "Complete universal Rakiza conversation routing v2"
+          git push
