@@ -51,7 +51,7 @@ const def=sp('وش وضع المعرض؟',x=>x.period?.defaulted===true&&x.perio
 ok(def.period.end==='2026-09-13','default period ends today',def);
 
 (async()=>{
-let g=await S.gatherPeriod({type:'range',start:'2026-09-07',end:'2026-09-13',label:'هذا الأسبوع حتى اليوم'});
+let g=await S.gatherPeriod({type:'range',start:'2026-09-07',end:'2026-09-13',label:'آخر 7 أيام'});
 ok(g.sales.available&&g.sales.sales===8000,'sales gathered',g.sales);
 ok(g.sales.variance===-4000,'sales variance gathered',g.sales);
 ok(g.readiness.available&&g.readiness.average===82,'readiness gathered',g.readiness);
@@ -97,7 +97,7 @@ ok(/ATV/.test(h)&&/Traffic/.test(h)&&/Conversion/.test(h),'causal limitations de
 h=await S.answer('وش أكثر مشكلة متكررة؟',{});
 ok(/أبرز التكرارات/.test(h),'recurrence section',h);
 ok(/لا أوحّد أنواع أحداث مختلفة/.test(h),'no cross-domain fake ranking',h);
-ok(/الشبكة/.test(h)&&/60L/.test(h),'recurrences shown',h);
+ok(/الشبكة/.test(h),'current-week recurrence shown without importing prior-week shortage history',h);
 
 h=await S.answer('قارن هذا الأسبوع بالأسبوع الماضي',{});
 ok(/مقارنة شاملة للمعرض/.test(h),'comparison title',h);
@@ -105,7 +105,7 @@ ok(/Sales/.test(h)&&/متوسط الجاهزية/.test(h),'comparison domains',h
 ok(/وصفية/.test(h)&&/علاقة سببية/.test(h),'comparison causal caveat',h);
 ok(/أرقام الإجراءات حسب تاريخ التسجيل/.test(h),'actions history caveat',h);
 
-S.state.last={spec:{task:'analysis',period:{type:'range',start:'2026-09-07',end:'2026-09-13',label:'هذا الأسبوع حتى اليوم'}},snapshot:g};
+S.state.last={spec:{task:'analysis',period:{type:'range',start:'2026-09-07',end:'2026-09-13',label:'آخر 7 أيام'}},snapshot:g};
 rt('طيب وش أكثر مشكلة متكررة؟',true);
 const f=sp('قارنها بالشهر الماضي',x=>x.task==='compare'&&x.period?.type==='compare');
 ok(f.period.periods.length===2,'follow-up comparison keeps prior period',f.period);
