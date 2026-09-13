@@ -84,7 +84,7 @@ function groupStatusAnchors(n){const out=[];const defs=[
 function inheritedGroupStatus(mention,anchors){let hit=null;for(const a of anchors)if(a.end<=mention.start)hit=a;return hit?.status||null}
 function dayAfterNameMeansOff(n){return/اجازتهم بعدهم|اجازتهم بعد الاسم|اجازه بعد كل اسم|اجازة بعد كل اسم|الاجازه بعد الاسم|الاجازة بعد الاسم/.test(n)}
 function assignmentFromSegment(mention,segment,whole,anchors){
-  const s=norm(segment),days=detectDayMentions(s),work=workStatusFor(s),offCue=/اجازه|اجازة|اوف|راحه|راحة|سنويه|سنوية|سكليف|مرضي|مرضية|تعويضي/.test(s),afterRule=dayAfterNameMeansOff(whole);let defaultStatus=null,overrides={};
+  const s=norm(segment),days=detectDayMentions(s),work=workStatusFor(s),offCue=/اجازه|اجازة|اجازته|اجازتها|اجازتهم|اجازتي|اوف|راحه|راحة|راحته|راحتها|سنويه|سنوية|سنويته|سكليف|مرضي|مرضية|مرضيته|تعويضي/.test(s),afterRule=dayAfterNameMeansOff(whole);let defaultStatus=null,overrides={};
   const group=inheritedGroupStatus(mention,anchors);
   if(work){
     const firstDay=days[0];
