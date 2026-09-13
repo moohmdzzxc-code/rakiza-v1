@@ -125,7 +125,8 @@ function mergeRosterDraft(draft,text,people=resolvePeople(text)){
   const patch=parseRosterDraft(text,mentions,next.period);
   if(/كلهم\s*(?:مساء|مسائي)/.test(n))for(const a of next.assignments)a.defaultStatus='Evening';
   if(/كلهم\s*(?:صباح|صباحي)/.test(n))for(const a of next.assignments)a.defaultStatus='Morning';
-  for(const p of patch.assignments){const key=assignmentKey(p),old=next.assignments.find(x=>assignmentKey(x)===key);if(old){if(p.defaultStatus)old.defaultStatus=p.defaultStatus;old.overrides={...old.overrides,...p.overrides};old.source=[old.source,p.source].filter(Boolean).join(' | ')}else next.assignments.push(p)}
+  const replaceOff=/^(لا |قصدي|اقصد|أقصد|خله|خلي|خلها|خليها)/.test(n);
+  for(const p of patch.assignments){const key=assignmentKey(p),old=next.assignments.find(x=>assignmentKey(x)===key);if(old){if(p.defaultStatus)old.defaultStatus=p.defaultStatus;if(replaceOff&&Object.values(p.overrides||{}).some(v=>STATUSES.find(s=>s.value===v)?.kind==='off')){for(const [day,val] of Object.entries(old.overrides||{}))if(STATUSES.find(s=>s.value===val)?.kind==='off')delete old.overrides[day]}old.overrides={...old.overrides,...p.overrides};old.source=[old.source,p.source].filter(Boolean).join(' | ')}else next.assignments.push(p)}
   if(patch.period)next.period=patch.period;next.updatedAt=new Date().toISOString();next.approvedInConversation=false;return next
 }
 function unresolvedAssignments(draft){return(draft?.assignments||[]).filter(x=>!x.resolved||!x.employee_id)}
@@ -147,7 +148,7 @@ function applyClarification(text){const q=STATE.pending.question,draft=STATE.pen
 function rosterIntent(text){const n=norm(text);return/خطة التواجد|خطه التواجد|روستر|جدول الدوام|خطة دوام|خطه دوام/.test(n)}
 function rosterCreateIntent(text){const n=norm(text);return rosterIntent(text)&&/سوي|سو|انشئ|أنشئ|جهز|ابني|اعمل|رتب|خطة|خطه/.test(n)}
 function rosterModifyIntent(text){const n=norm(text);return rosterIntent(text)&&/عدل|عدّل|غير|غيّر|خلي|بدل/.test(n)}
-function correctionIntent(text){const n=norm(text);return/^(لا |قصدي|اقصد|أقصد|عدل|عدّل|غير|غيّر|خلي|خل |وخل|بس |الا |إلا )/.test(n)||/اجازته|إجازته|دوامه|شفت/.test(n)}
+function correctionIntent(text){const n=norm(text);return/^(لا |قصدي|اقصد|أقصد|عدل|عدّل|غير|غيّر|خلي|خله|خلها|خليها|خل |وخل|بس |الا |إلا )/.test(n)||/اجازته|إجازته|دوامه|شفت/.test(n)}
 function showDraftIntent(text){const n=norm(text);return/اعرض.*(?:مسوده|مسودة|خطه|خطة)|ورني.*(?:مسوده|مسودة|خطه|خطة)|وش فهمت|ايش فهمت|المسوده|المسودة/.test(n)}
 function cancelDraftIntent(text){const n=norm(text);return/الغ.*(?:المسوده|المسودة|الخطه|الخطة)|احذف.*(?:المسوده|المسودة)/.test(n)}
 function approveDraftIntent(text){const n=norm(text);return/^(اعتمد|اعتمدها|اعتمد الخطة|اعتمد الخطه|اعتمد المسودة|اعتمد المسوده)$/.test(n)}
