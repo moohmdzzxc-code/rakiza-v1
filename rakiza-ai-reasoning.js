@@ -3,6 +3,7 @@
 
 /*
  * Browser entrypoint for Rakiza AI reasoning.
+ * Production integration: Rakiza AI Conversation Intelligence v1.0.0.
  * The original shared reasoning implementation is preserved verbatim in
  * rakiza-ai-reasoning-core.js. Store Intelligence is loaded after it, then
  * the store reasoning bridge, and finally the central conversation layer.
