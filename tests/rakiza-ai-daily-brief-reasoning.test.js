@@ -1,0 +1,35 @@
+global.window={RakizaAI:{normalize:null,state:{}}};
+global.app={calendarDate:'2026-09-13',date:'2026-09-13',day:{id:'d1',work_date:'2026-09-13',status:'مفتوح',day_type:'يوم تشغيلي',daily_target:5000}};
+const els={assistantInput:{value:''},assistantChat:{html:'',insertAdjacentHTML(_p,h){this.html+=h},lastElementChild:{scrollIntoView(){}}}};
+global.document={getElementById(id){return els[id]||null}};
+window.askRakizaAssistant=async()=>{};
+require('../rakiza-ai-reasoning-core.js');
+const day={sales:{available:false},readiness:{available:true,average:95,open:0,criticalOpen:0,repeated:[]},attendance:{available:true,records:3,plannedWorking:3,present:3,absent:0,late:0},tasks:{available:true,total:2,final:0,completed:0,partial:0,notDone:0,incomplete:0,unfinalized:2,repeated:[]},shortages:{available:true,unresolvedCurrent:0,orderedAwaitingSupply:0,repeated:[]},actions:{available:true,openCurrent:0,escalatedCurrent:0,oldest:null}};
+const month={...day,sales:{available:true,rows:8,sales:15000,targetToDate:15000,variance:0,cutoff:'2026-09-12'}};
+window.RakizaAI.store={gatherPeriod:async p=>p.type==='month'?month:day,answer:async()=>'<div>STORE</div>'};
+require('../rakiza-ai-daily-brief.js');
+require('../rakiza-ai-daily-brief-reasoning-bridge.js');
+let pass=0;function ok(c,m,g){if(!c){console.error('FAIL',m,g||'');process.exit(1)}pass++}
+(async()=>{
+ok(!!window.RakizaAI.dailyBrief.reasoningBridge,'daily brief reasoning bridge exposed');
+ok(window.askRakizaAssistant.__rakizaDailyBriefReasoningWrapped===true,'daily brief reasoning wrapper installed');
+els.assistantInput.value='عطني ملخص اليوم';await window.askRakizaAssistant();
+const R=window.RakizaAI.reasoning,m=R.state.memory,c=R.state.lastCard;
+ok(m.domain==='daily_brief','reasoning memory domain is daily brief',m);
+ok(m.metric==='manager_brief','manager brief metric stored',m);
+ok(m.period?.date==='2026-09-13','daily period stored',m.period);
+ok(m.knowledgeLevel==='recommendation','daily brief classified as recommendation',m);
+ok(/اليوم المفتوح/.test(m.constraints.join(' ')),'open day safeguard stored',m.constraints);
+ok(/المهمة غير النهائية/.test(m.constraints.join(' ')),'unfinalized task safeguard stored',m.constraints);
+ok(/السببية/.test(m.constraints.join(' ')),'causal safeguard stored',m.constraints);
+ok(/درجة صحة أو خطر/.test(m.constraints.join(' ')),'no composite score constraint stored',m.constraints);
+ok(c.domainLabel==='الملخص اليومي الذكي','reasoning card label',c);
+ok(c.dataSources.length===7,'all daily brief sources declared',c.dataSources);
+ok(c.safeguards.openDayNotZero===true,'open day not zero safeguard flag',c.safeguards);
+ok(c.safeguards.unfinalizedTaskNotFailure===true,'task safeguard flag',c.safeguards);
+ok(c.safeguards.causalClaimsNeedEvidence===true,'causal evidence safeguard flag',c.safeguards);
+ok(c.safeguards.noCompositeStoreScore===true,'no composite score safeguard flag',c.safeguards);
+ok(c.safeguards.sensitiveWritesNeedApproval===true,'sensitive write approval safeguard flag',c.safeguards);
+ok(R.state.history.some(x=>x.domain==='daily_brief'),'daily brief card added to reasoning history',R.state.history);
+console.log('Rakiza AI daily brief reasoning tests passed:',pass);
+})().catch(e=>{console.error(e);process.exit(1)});
