@@ -32,16 +32,17 @@ const DICT={
     ['اجراء',4],['إجراء',4],['متابعه',4],['متابعة',4],['تصعيد',4],['صعدنا',3],['رفعناه',3],['رفعنا',2],['للمشرف',2],['صيانه',4],['صيانة',4],['طلب دعم',4],['مشكله عميل',4],['مشكلة عميل',4],['قيد المتابعه',4],['مغلق',2],['وين وصل',3],['وش صار عليه',3]
   ],
   store:[
-    ['وضع المعرض',5],['وضعنا',4],['الوضع العام',4],['حلل المعرض',5],['اولويات',4],['أولويات',4],['الزبدة',3],['الزبد ه',1],['وش وضعنا',4],['وش المشكله',3],['وش المشكلة',3],['ضغط',2],['وش موقفنا',3],['ليش متراجعين',4],['الصوره كامله',4],['الصورة كاملة',4]
+    ['وضع المعرض',5],['وضعنا',4],['الوضع العام',4],['حلل المعرض',5],['اولويات',4],['أولويات',4],['الزبدة',3],['وش وضعنا',4],['وش المشكله',3],['وش المشكلة',3],['ضغط',2],['وش موقفنا',3],['ليش متراجعين',4],['الصوره كامله',4],['الصورة كاملة',4]
   ]
 };
 
 const OP={
-  create:['سوي','سو','انشئ','انشاء','أنشئ','جهز','حضر','حضّر','ابني','اعمل','كون','كوّن','طلع لي','ابي','أبي','ابغى','ابغا','ودي'],
+  create:['سوي','سو','انشئ','انشاء','أنشئ','جهز','حضر','حضّر','ابني','اعمل','كون','كوّن'],
+  desire:['ابي','أبي','ابغى','ابغا','ودي','احتاج','أحتاج'],
   modify:['عدل','عدّل','غير','غيّر','خلي','خل','حط','شيل','احذف','بدل','استبدل','قدم','اخر','أخر','زود','نقص'],
   compare:['قارن','مقارنه','مقارنة','مقابل','الفرق بين'],
   analyze:['حلل','تحليل','فسر','فسّر','ليش','سبب','وش السبب','وش المشكله','وش المشكلة','قيم','قيّم','اولويات','أولويات','اربط','العلاقه','العلاقة','اثر','تاثير','تأثير'],
-  query:['وش','ايش','إيش','كم','مين','من','هل','وين','متى','كيف','اعرض','ورني','عطني','اعطني','طلع'],
+  query:['وش','ايش','إيش','كم','مين','من','هل','وين','متى','كيف','اعرض','ورني','عطني','اعطني','طلع','طلع لي'],
   meta:['كيف','ليش كذا','وش تقصد','وضح','وضّح','ما فهمت','كيف فهمتها','وش فهمت','ايش فهمت','ليش فهمتها كذا']
 };
 
@@ -49,9 +50,7 @@ const DAY_WORDS=['الاحد','الأحد','الاثنين','الإثنين','ا
 const SHIFT_WORDS=['صباح','صباحي','مساء','مسائي','اجازه','اجازة','اوف','راحه','راحة','سنويه','سنوية','سكليف','تعويضي'];
 const PERIOD_WORDS=['اليوم','امس','أمس','بكره','بكرة','غدا','الأسبوع','الاسبوع','الشهر','هذا الاسبوع','الاسبوع الجاي','الأسبوع الجاي','الشهر الماضي'];
 
-function norm(v){
-  try{return typeof AI.normalize==='function'?AI.normalize(v):basicNorm(v)}catch{return basicNorm(v)}
-}
+function norm(v){try{return typeof AI.normalize==='function'?AI.normalize(v):basicNorm(v)}catch{return basicNorm(v)}}
 function basicNorm(v){return String(v??'').toLowerCase().replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[\u064B-\u065F\u0670]/g,'').replace(/ـ/g,'').replace(/[أإآٱ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/[،,:;؛!?؟.()\[\]{}"']/g,' ').replace(/\s+/g,' ').trim()}
 function clone(v){try{return JSON.parse(JSON.stringify(v))}catch{return v}}
 function toks(v){return norm(v).split(' ').filter(Boolean)}
@@ -59,7 +58,7 @@ function hasPhrase(n,p){return n.includes(norm(p))}
 function hasAny(n,list){return list.some(x=>hasPhrase(n,x))}
 function levenshtein(a,b){a=String(a);b=String(b);const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let prev=Array.from({length:n+1},(_,i)=>i),cur=new Array(n+1);for(let i=1;i<=m;i++){cur[0]=i;for(let j=1;j<=n;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));[prev,cur]=[cur,prev]}return prev[n]}
 function fuzzyWordHit(text,word){const w=norm(word);if(w.includes(' ')||w.length<5)return false;const max=w.length>=8?2:1;return toks(text).some(t=>t.length>=4&&Math.abs(t.length-w.length)<=max&&levenshtein(t,w)<=max)}
-function scoreDict(text,entries){const n=norm(text);let score=0,hits=[];for(const [phrase,weight] of entries){if(hasPhrase(n,phrase)){score+=weight;hits.push(norm(phrase))}else if(fuzzyWordHit(n,phrase)){score+=Math.max(1,weight-2);hits.push(`~${norm(phrase)}`)}}return{score,hits}}
+function scoreDict(text,entries){const n=norm(text);let score=0,hits=[];for(const [phrase,weight] of entries){if(hasPhrase(n,phrase)){score+=weight;hits.push(norm(phrase))}else if(fuzzyWordHit(n,phrase)){score+=Math.max(1,weight>=4?weight-1:weight-2);hits.push(`~${norm(phrase)}`)}}return{score,hits}}
 function opHit(n,list){return list.some(x=>hasPhrase(n,x))}
 function isMeta(n){return OP.meta.some(x=>norm(x)===n)||(/^(كيف|ليش|وضح|وش تقصد)$/.test(n)&&!!STATE.last)}
 function peopleCount(frame){return Array.isArray(frame?.people)?frame.people.length:0}
@@ -77,7 +76,7 @@ function inferOperation(text,frame){
   if(opHit(n,OP.modify))return pendingRoster?'modify_draft':'modify';
   if(opHit(n,OP.create))return'create';
   if(hasAssignmentStructure(text,frame))return pendingRoster?'modify_draft':'create';
-  if(opHit(n,OP.query)||frame?.domain)return'query';
+  if(opHit(n,OP.query)||opHit(n,OP.desire)||frame?.domain)return'query';
   return'conversation';
 }
 
@@ -109,8 +108,12 @@ function domainScores(text,frame,base){
 
 function chooseDomain(text,frame,base,operation){
   const {scores,evidence}=domainScores(text,frame,base),ranked=Object.entries(scores).sort((a,b)=>b[1]-a[1]),top=ranked[0]||[null,0],second=ranked[1]||[null,0];
+  const n=norm(text),strongDomains=Object.entries(scores).filter(([d,s])=>d!=='store'&&s>=4).map(([d])=>d);
+  if(strongDomains.length>=2&&(['analyze','compare'].includes(operation)||/ليش|سبب|اثر|تاثير|علاقه|ربط|حلل|قارن|وضع/.test(n))){
+    return{domain:'store',confidence:Math.max(0.82,Math.min(0.98,0.72+strongDomains.length*0.07)),scores,evidence,alternatives:ranked.slice(0,3).map(([d,s])=>({domain:d,score:s}))};
+  }
   let domain=top[1]>=3?top[0]:null;
-  if(!domain&&followUpCue(norm(text))&&C.state?.context?.domain)domain=C.state.context.domain;
+  if(!domain&&followUpCue(n)&&C.state?.context?.domain)domain=C.state.context.domain;
   if(!domain&&operation==='meta'&&STATE.last?.domain)domain=STATE.last.domain;
   if(domain!=='store'&&second[1]>=top[1]-1&&top[1]>=4&&second[1]>=4&&['analyze','compare'].includes(operation))domain='store';
   const confidence=top[1]<=0?0:Math.max(0.35,Math.min(0.98,0.42+(top[1]/14)-Math.max(0,second[1]-2)/30));
@@ -125,8 +128,7 @@ function infer(text,baseFrame={},base={}){
   else if(route.domain==='attendance'&&roster&&operation==='modify_draft'){action='update_roster_draft';mode='draft';subdomain='roster'}
   else if(operation==='analyze'||operation==='compare')mode='analysis';
   else if(operation==='create'||operation==='modify')mode='draft';
-  const result={version:VERSION,operation,domain:route.domain,subdomain,confidence:route.confidence,action,mode,alternatives:route.alternatives,signals:Object.fromEntries(Object.entries(route.evidence).filter(([,v])=>v.length).map(([k,v])=>[k,v.slice(0,8)])),followUp:followUpCue(n),assignment};
-  return result;
+  return{version:VERSION,operation,domain:route.domain,subdomain,confidence:route.confidence,action,mode,alternatives:route.alternatives,signals:Object.fromEntries(Object.entries(route.evidence).filter(([,v])=>v.length).map(([k,v])=>[k,v.slice(0,8)])),followUp:followUpCue(n),assignment};
 }
 
 function rememberIntent(i,text){if(i.operation==='meta')return;STATE.last={...clone(i),text:String(text||''),at:new Date().toISOString()};STATE.history.push(STATE.last);if(STATE.history.length>60)STATE.history.splice(0,STATE.history.length-60)}
