@@ -6,6 +6,7 @@ on:
       - rakiza-ai-actions-v0-1
     paths:
       - '.github/workflows/integrate-rakiza-ai-actions.yml'
+      - 'rakiza-ai-actions.js'
 
 permissions:
   contents: write
@@ -24,7 +25,7 @@ jobs:
         run: |
           from pathlib import Path
 
-          # Natural-language coverage for action types, lifecycle, and subject matching.
+          # Natural-language coverage for action types, lifecycle, escalation, and subject matching.
           p=Path('rakiza-ai-actions.js')
           s=p.read_text(encoding='utf-8')
           s=s.replace("{key:'طلب دعم',aliases:['طلب دعم','دعم','دعم فني','مساندة']}","{key:'طلب دعم',aliases:['طلب دعم','طلبات الدعم','طلب الدعم','دعم','دعم فني','مساندة']}")
@@ -40,6 +41,8 @@ jobs:
           if new not in s:
               if old not in s: raise SystemExit('actions focus token anchor not found')
               s=s.replace(old,new,1)
+          s=s.replace("if(/كم مره.*تصعيد|كم مرة.*تصعيد|عدد مرات.*تصعيد|متى.*تصعيد|تاريخ.*تصعيد/.test(n))return'unsupported_escalation_history';","if(/كم مره.*(?:تصعيد|تصعد|تصعّد)|كم مرة.*(?:تصعيد|تصعد|تصعّد)|عدد مرات.*(?:تصعيد|تصعد|تصعّد)|متى.*(?:تصعيد|تصعد|تصعّد)|تاريخ.*(?:تصعيد|تصعد|تصعّد)/.test(n))return'unsupported_escalation_history';")
+          s=s.replace("if(/سبب التصعيد|ليش تصعد|لماذا تصعد/.test(n))return'escalation_reason';","if(/سبب (?:التصعيد|تصعيد)|ليش تصعد|لماذا تصعد/.test(n))return'escalation_reason';")
           p.write_text(s,encoding='utf-8')
 
           # Load the actions specialist before shared reasoning.
