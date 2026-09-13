@@ -12,6 +12,7 @@ on:
       - 'rakiza-ai-reasoning-core.js'
       - 'tests/rakiza-ai-store-intelligence.test.js'
       - 'tests/rakiza-ai-store-reasoning.test.js'
+      - 'tests/rakiza-ai-actions-reasoning.test.js'
   workflow_dispatch:
 
 permissions:
