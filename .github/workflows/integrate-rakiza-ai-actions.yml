@@ -24,6 +24,13 @@ jobs:
         run: |
           from pathlib import Path
 
+          # Natural-language coverage for support requests in singular/plural forms.
+          p=Path('rakiza-ai-actions.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace("{key:'طلب دعم',aliases:['طلب دعم','دعم','دعم فني','مساندة']}","{key:'طلب دعم',aliases:['طلب دعم','طلبات الدعم','طلب الدعم','دعم','دعم فني','مساندة']}")
+          s=s.replace("if(/طلب دعم|دعم فني|مشكله عميل|مشكلة عميل|شكوى عميل/.test(text))s+=5;","if(/طلبات?\\s*الدعم|طلب دعم|دعم فني|\\bدعم\\b|مشكله عميل|مشكلة عميل|شكوى عميل/.test(text))s+=5;")
+          p.write_text(s,encoding='utf-8')
+
           # Load the actions specialist before shared reasoning.
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
