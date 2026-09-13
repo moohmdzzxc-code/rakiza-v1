@@ -10,24 +10,20 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message == 'Add temporary Rakiza conversation patch workflow'
+    if: github.event.head_commit.message == 'Patch Rakiza Arabic possessive leave phrases'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch conversational corrections
+      - name: Patch Arabic possessive leave language
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('rakiza-ai-conversation.js')
           s=p.read_text()
-          old="function correctionIntent(text){const n=norm(text);return/^(لا |قصدي|اقصد|أقصد|عدل|عدّل|غير|غيّر|خلي|خل |وخل|بس |الا |إلا )/.test(n)||/اجازته|إجازته|دوامه|شفت/.test(n)}"
-          new="function correctionIntent(text){const n=norm(text);return/^(لا |قصدي|اقصد|أقصد|عدل|عدّل|غير|غيّر|خلي|خله|خلها|خليها|خل |وخل|بس |الا |إلا )/.test(n)||/اجازته|إجازته|دوامه|شفت/.test(n)}"
-          if old not in s: raise SystemExit('correctionIntent target not found')
+          old="offCue=/اجازه|اجازة|اوف|راحه|راحة|سنويه|سنوية|سكليف|مرضي|مرضية|تعويضي/.test(s)"
+          new="offCue=/اجازه|اجازة|اجازته|اجازتها|اجازتهم|اجازتي|اوف|راحه|راحة|راحته|راحتها|سنويه|سنوية|سنويته|سكليف|مرضي|مرضية|مرضيته|تعويضي/.test(s)"
+          if old not in s: raise SystemExit('offCue target not found')
           s=s.replace(old,new,1)
-          old2="for(const p of patch.assignments){const key=assignmentKey(p),old=next.assignments.find(x=>assignmentKey(x)===key);if(old){if(p.defaultStatus)old.defaultStatus=p.defaultStatus;old.overrides={...old.overrides,...p.overrides};old.source=[old.source,p.source].filter(Boolean).join(' | ')}else next.assignments.push(p)}"
-          new2="const replaceOff=/^(لا |قصدي|اقصد|أقصد|خله|خلي|خلها|خليها)/.test(n);\n  for(const p of patch.assignments){const key=assignmentKey(p),old=next.assignments.find(x=>assignmentKey(x)===key);if(old){if(p.defaultStatus)old.defaultStatus=p.defaultStatus;if(replaceOff&&Object.values(p.overrides||{}).some(v=>STATUSES.find(s=>s.value===v)?.kind==='off')){for(const [day,val] of Object.entries(old.overrides||{}))if(STATUSES.find(s=>s.value===val)?.kind==='off')delete old.overrides[day]}old.overrides={...old.overrides,...p.overrides};old.source=[old.source,p.source].filter(Boolean).join(' | ')}else next.assignments.push(p)}"
-          if old2 not in s: raise SystemExit('merge target not found')
-          s=s.replace(old2,new2,1)
           p.write_text(s)
           PY
       - name: Commit patch
@@ -35,5 +31,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add rakiza-ai-conversation.js
-          git commit -m "Fix Rakiza conversational roster corrections"
+          git commit -m "Expand Rakiza Arabic leave inflections"
           git push
