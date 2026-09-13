@@ -5,6 +5,9 @@ on:
     branches:
       - rakiza-ai-intent-intelligence-v1b
 
+permissions:
+  contents: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -13,6 +16,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Strengthen semantic typo matching
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('rakiza-ai-intent.js')
+          s=p.read_text()
+          old="else if(fuzzyWordHit(n,phrase)){score+=Math.max(1,weight-2);hits.push(`~${norm(phrase)}`)}"
+          new="else if(fuzzyWordHit(n,phrase)){score+=Math.max(1,weight>=4?weight-1:weight-2);hits.push(`~${norm(phrase)}`)}"
+          if old in s:
+              s=s.replace(old,new,1)
+              p.write_text(s)
+          elif new not in s:
+              raise SystemExit('semantic typo scoring target not found')
+          PY
       - name: Syntax check
         run: |
           set -e
@@ -33,3 +50,11 @@ jobs:
             echo "=== $f ==="
             node "$f"
           done
+      - name: Commit tested intent scoring patch
+        run: |
+          if git diff --quiet -- rakiza-ai-intent.js; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rakiza-ai-intent.js
+          git commit -m "Strengthen Rakiza intent typo tolerance"
+          git push
