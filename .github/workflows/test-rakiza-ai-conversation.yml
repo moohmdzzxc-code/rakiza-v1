@@ -25,7 +25,7 @@ jobs:
       - name: Run complete Rakiza AI regression
         run: |
           set -e
-          # Full suite: specialist brains + shared reasoning + store intelligence + conversation.
+          # Full suite: specialist brains + shared reasoning + store intelligence + conversation. Re-run after Arabic inflection fix.
           for f in tests/*.test.js; do
             echo "=== $f ==="
             node "$f"
