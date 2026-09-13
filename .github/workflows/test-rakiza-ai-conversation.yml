@@ -25,6 +25,7 @@ jobs:
       - name: Run complete Rakiza AI regression
         run: |
           set -e
+          # Full suite: specialist brains + shared reasoning + store intelligence + conversation.
           for f in tests/*.test.js; do
             echo "=== $f ==="
             node "$f"
