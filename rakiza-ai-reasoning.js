@@ -117,7 +117,7 @@ function knowledgeLevelFor(domain,last){
   if(/analysis|analy|diagnos/.test(String(task)))return KNOWLEDGE_LEVELS.INFERENCE;
   if(/compare|rank|trend|recurrence/.test(String(task)))return KNOWLEDGE_LEVELS.PATTERN;
   if(/draft|recommend|plan/.test(String(task)))return KNOWLEDGE_LEVELS.RECOMMENDATION;
-  if(/metric|score|count|sum|average|target|achievement|gap|variance|duration/.test(String(task)))return KNOWLEDGE_LEVELS.CALCULATION;
+  if(/metric|score|count|sum|average|target|achievement|gap|variance|duration|age/.test(String(task)))return KNOWLEDGE_LEVELS.CALCULATION;
   if(domain==='sales'&&['summary','query'].includes(task))return KNOWLEDGE_LEVELS.CALCULATION;
   return KNOWLEDGE_LEVELS.FACT;
 }
@@ -132,6 +132,7 @@ function constraintsFor(domain,last){
   if(domain==='readiness')out.push('أوزان الجاهزية تؤخذ من منطق ركيزة المعتمد ولا تُستبدل بدرجة مخاطر مخفية.');
   if(domain==='attendance')out.push('الخطة الأصلية تبقى محفوظة، والتغيير لا يمحوها.');
   if(domain==='tasks'){out.push('اليوم المفتوح بلا حالة تنفيذ نهائية لا يُعامل كمهمة غير منفذة.');out.push('تعديل خطة اليوم لا يمحو النسخة السابقة، وأي تعديل معتمد يحتاج سببًا.');}
+  if(domain==='actions'){out.push('التصعيد يبقي الإجراء قيد المتابعة ولا يعني الإغلاق.');out.push('الإغلاق يحتاج نتيجة معالجة مسجلة.');out.push('سجل الإجراءات الحالي لا يحتفظ بتاريخ مستقل لكل تصعيد أو بعدد مرات التصعيد.');}
   return out;
 }
 
@@ -154,6 +155,11 @@ function focusFor(domain,last){
     if(s.category)return{type:'task_category',label:s.category};
     if(s.section)return{type:'section',label:s.section.name||s.section};
     if(s.execution)return{type:'execution_status',label:s.execution};
+  }
+  if(domain==='actions'){
+    if(s.focus)return{type:'action',id:s.focus.id||null,label:s.focus.subject||s.focus.action_type||'إجراء'};
+    if(s.type)return{type:'action_type',label:s.type};
+    if(s.status)return{type:'action_status',label:s.status};
   }
   return null;
 }
@@ -181,7 +187,8 @@ function dataSourcesFor(domain){
     sales:['أيام المبيعات المسجلة والمستهدفات المعتمدة'],
     readiness:['سجل الجاهزية وبنودها وأوزانها المسجلة'],
     attendance:['خطة التواجد والحضور الفعلي وسجل تغييرات الخطة'],
-    tasks:['خطة اليوم المعتمدة والمهام والتكليفات وحالات التنفيذ عند الإغلاق']
+    tasks:['خطة اليوم المعتمدة والمهام والتكليفات وحالات التنفيذ عند الإغلاق'],
+    actions:['سجل الإجراءات والمتابعات والحالة الحالية والتصعيد ونتيجة الإغلاق']
   }[domain]||['بيانات ركيزة المسجلة'];
 }
 
@@ -272,12 +279,13 @@ function snapshot(){
     sales:AI.sales?.state?.last||null,
     readiness:AI.readiness?.state?.last||null,
     attendance:AI.attendance?.state?.last||null,
-    tasks:AI.tasks?.state?.last||null
+    tasks:AI.tasks?.state?.last||null,
+    actions:AI.actions?.state?.last||null
   };
 }
 
 function detectChanged(before,after){
-  for(const d of ['tasks','attendance','readiness','sales','shortages']){
+  for(const d of ['actions','tasks','attendance','readiness','sales','shortages']){
     if(after[d]&&after[d]!==before[d])return d;
   }
   return null;
