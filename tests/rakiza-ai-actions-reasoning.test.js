@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm');
+let pass=0;function ok(c,n,x){if(!c){console.error('FAIL',n,x||'');process.exit(1)}pass++}
+const last={text:'وش وضع المكيف',spec:{task:'age',period:{type:'month',month:'2026-09',label:'هذا الشهر'},status:'open',type:'صيانة',focus:{id:'a1',action_type:'صيانة',subject:'مكيف الصالة'}}};
+const sandbox={console,window:{},document:{getElementById(){return null}},setTimeout,clearTimeout};sandbox.window=sandbox;
+sandbox.window.RakizaAI={normalize:v=>String(v??'').toLowerCase().replace(/[أإآ]/g,'ا').replace(/ة/g,'ه'),analyze:t=>({entities:{}}),actions:{state:{last}}};
+sandbox.window.askRakizaAssistant=()=>{};
+vm.createContext(sandbox);vm.runInContext(fs.readFileSync('rakiza-ai-reasoning.js','utf8'),sandbox,{filename:'rakiza-ai-reasoning.js'});
+const R=sandbox.window.RakizaAI.reasoning;
+ok(!!R,'reasoning exists');
+let c=R.makeCard('actions',last,'وش وضع المكيف');
+ok(c.domain==='actions','actions domain');
+ok(c.dataSources.some(x=>x.includes('الإجراءات والمتابعات')),'actions source',c.dataSources);
+ok(c.constraints.some(x=>x.includes('التصعيد')&&x.includes('الإغلاق')),'escalation not closure constraint',c.constraints);
+ok(c.constraints.some(x=>x.includes('نتيجة معالجة')),'closure result constraint',c.constraints);
+ok(c.focus?.type==='action'&&c.focus?.label==='مكيف الصالة','actions focus',c.focus);
+let snap=R.snapshot();ok(snap.actions===last,'snapshot actions');
+let before={...snap,actions:null},changed=R.detectChanged(before,snap);ok(changed==='actions','detect actions change',changed);
+R.recordSpecialist('actions',last,'كم له المكيف');ok(R.state.memory.domain==='actions','memory domain');ok(R.state.memory.focus?.label==='مكيف الصالة','memory focus');
+ok(R.principles.escalation_not_closure.includes('ليس إغلاقًا'),'principle preserved');
+console.log('Rakiza AI actions reasoning tests passed:',pass);
