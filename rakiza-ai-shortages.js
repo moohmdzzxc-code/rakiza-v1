@@ -356,5 +356,5 @@ window.askRakizaAssistant=async function(){
 };
 
 window.RakizaAI=window.RakizaAI||{};
-window.RakizaAI.shortages={version:RSI_VERSION,state:RSI_STATE,detectSpec,detectSection,detectPeriod,isShortageLanguage};
+window.RakizaAI.shortages={version:RSI_VERSION,state:RSI_STATE,detectSpec,detectSection,detectPeriod,isShortageLanguage,answer};
 })();
