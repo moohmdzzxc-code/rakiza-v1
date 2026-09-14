@@ -39,10 +39,10 @@ const DICT={
 const OP={
   create:['سوي','سو','انشئ','انشاء','أنشئ','جهز','حضر','حضّر','ابني','اعمل','كون','كوّن'],
   desire:['ابي','أبي','ابغى','ابغا','ودي','احتاج','أحتاج'],
-  modify:['عدل','عدّل','غير','غيّر','خلي','خل','حط','شيل','احذف','بدل','استبدل','قدم','اخر','أخر','زود','نقص'],
+  modify:['عدل','عدّل','غير','غيّر','خلي','خل','حط','شيل','احذف','بدل','استبدل','زود','نقص'],
   compare:['قارن','مقارنه','مقارنة','مقابل','الفرق بين'],
   analyze:['حلل','تحليل','فسر','فسّر','ليش','سبب','وش السبب','وش المشكله','وش المشكلة','قيم','قيّم','اولويات','أولويات','اربط','العلاقه','العلاقة','اثر','تاثير','تأثير'],
-  query:['وش','ايش','إيش','كم','مين','من','هل','وين','متى','كيف','اعرض','ورني','عطني','اعطني','طلع','طلع لي'],
+  query:['وش','ايش','إيش','كم','مين','من','هل','وين','متى','كيف','ماهي','ما هي','ما هو','اعرض','ورني','عطني','اعطني','طلع','طلع لي'],
   meta:['كيف','ليش كذا','وش تقصد','وضح','وضّح','ما فهمت','كيف فهمتها','وش فهمت','ايش فهمت','ليش فهمتها كذا']
 };
 
@@ -59,7 +59,9 @@ function hasAny(n,list){return list.some(x=>hasPhrase(n,x))}
 function levenshtein(a,b){a=String(a);b=String(b);const m=a.length,n=b.length;if(!m)return n;if(!n)return m;let prev=Array.from({length:n+1},(_,i)=>i),cur=new Array(n+1);for(let i=1;i<=m;i++){cur[0]=i;for(let j=1;j<=n;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));[prev,cur]=[cur,prev]}return prev[n]}
 function fuzzyWordHit(text,word){const w=norm(word);if(w.includes(' ')||w.length<5)return false;const max=w.length>=8?2:1;return toks(text).some(t=>t.length>=4&&Math.abs(t.length-w.length)<=max&&levenshtein(t,w)<=max)}
 function scoreDict(text,entries){const n=norm(text);let score=0,hits=[];for(const [phrase,weight] of entries){if(hasPhrase(n,phrase)){score+=weight;hits.push(norm(phrase))}else if(fuzzyWordHit(n,phrase)){score+=Math.max(1,weight>=4?weight-1:weight-2);hits.push(`~${norm(phrase)}`)}}return{score,hits}}
-function opHit(n,list){return list.some(x=>hasPhrase(n,x))}
+const OP_SUFFIXES=['ه','ها','هم','هن','ك','كم','كن','نا','لي','لنا','لك','لكم','ي'];
+function opFormHit(text,phrase){const n=norm(text),p=norm(phrase);if(!p)return false;if(p.includes(' ')){const nt=' '+n+' ',pp=' '+p+' ';return nt.includes(pp)}return toks(n).some(t=>t===p||OP_SUFFIXES.some(s=>t===p+s))}
+function opHit(n,list){return list.some(x=>opFormHit(n,x))}
 function isMeta(n){return OP.meta.some(x=>norm(x)===n)||(/^(كيف|ليش|وضح|وش تقصد)$/.test(n)&&!!STATE.last)}
 function peopleCount(frame){return Array.isArray(frame?.people)?frame.people.length:0}
 function resolvedPeopleCount(frame){return Array.isArray(frame?.people)?frame.people.filter(x=>x.resolved).length:0}
