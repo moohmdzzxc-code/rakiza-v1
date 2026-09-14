@@ -1,0 +1,43 @@
+name: Patch Rakiza intent word boundaries
+
+on:
+  push:
+    branches:
+      - rakiza-ai-intent-intelligence-v1b
+    paths:
+      - .github/workflows/patch-rakiza-intent-boundaries.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch intent operation matching
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('rakiza-ai-intent.js')
+          s=p.read_text()
+          s=s.replace("modify:['عدل','عدّل','غير','غيّر','خلي','خل','حط','شيل','احذف','بدل','استبدل','قدم','اخر','أخر','زود','نقص']", "modify:['عدل','عدّل','غير','غيّر','خلي','خل','حط','شيل','احذف','بدل','استبدل','زود','نقص']")
+          s=s.replace("query:['وش','ايش','إيش','كم','مين','من','هل','وين','متى','كيف','اعرض','ورني','عطني','اعطني','طلع','طلع لي']", "query:['وش','ايش','إيش','كم','مين','من','هل','وين','متى','كيف','ماهي','ما هي','ما هو','اعرض','ورني','عطني','اعطني','طلع','طلع لي']")
+          old="function opHit(n,list){return list.some(x=>hasPhrase(n,x))}"
+          new="""const OP_SUFFIXES=['ه','ها','هم','هن','ك','كم','كن','نا','لي','لنا','لك','لكم','لكم','ي'];
+function opFormHit(text,phrase){const n=norm(text),p=norm(phrase);if(!p)return false;if(p.includes(' ')){const nt=` ${n} `,pp=` ${p} `;return nt.includes(pp)}return toks(n).some(t=>t===p||OP_SUFFIXES.some(s=>t===p+s))}
+function opHit(n,list){return list.some(x=>opFormHit(n,x))}"""
+          if old not in s:
+              raise SystemExit('opHit target not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Syntax check
+        run: node --check rakiza-ai-intent.js
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add rakiza-ai-intent.js
+          git commit -m "Use word-safe operation matching in Rakiza Intent Intelligence"
+          git push
