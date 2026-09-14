@@ -5,7 +5,8 @@ const V=window.RakizaAI.voice;
 let pass=0;function ok(c,m,g){if(!c){console.error('FAIL',m,g||'');process.exit(1)}pass++}
 
 ok(V.version==='1.1.0','voice version');
-ok(V.profile==='professional-arabic-saudi','professional Arabic Saudi profile');
+ok(V.profile==='arabic-white-saudi','voice remains compatible with Arabic white Saudi profile');
+ok(V.tone==='professional-executive','voice uses professional executive tone');
 let out=V.present('<b>ملخص المبيعات</b><div>المبيعات 12,500 ريال</div>',{domain:'sales'});
 ok(out.includes('البيانات المسجلة')||out.includes('ملخص المبيعات وفق'),'sales gets professional lead',out);
 ok(out.includes('12,500 ريال'),'numbers preserved exactly',out);
