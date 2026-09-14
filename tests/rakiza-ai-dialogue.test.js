@@ -5,7 +5,9 @@ const employees=[
 ];
 global.app={calendarDate:'2026-09-13',date:'2026-09-13',employees};window.app=global.app;
 let fallback=0;
+let staged=0;
 window.RakizaAI={state:{context:{}},analyze:q=>({raw:q,entities:{}})};
+window.RakizaAI.rosterOperational={stage:async draft=>{staged++;draft.status='operational_draft';draft.approvedInConversation=true;draft.operationalStage={status:'staged'};return{ok:true,entryCount:14,missingCells:0}}};
 window.askRakizaAssistant=async()=>{fallback++;return'fallback'};
 const els={assistantInput:{value:''},assistantChat:{items:[],insertAdjacentHTML(_p,h){this.items.push(h)},lastElementChild:{scrollIntoView(){}}}};
 global.document={getElementById:id=>els[id]||null};window.document=global.document;
@@ -44,7 +46,7 @@ const C=window.RakizaAI.conversation,U=window.RakizaAI.conversationUniversal,I=w
 let pass=0;
 function ok(c,m,g){if(!c){console.error('FAIL',m,g||'');process.exit(1)}pass++}
 function html(){return els.assistantChat.items.join('\n')}
-function reset(){fallback=0;els.assistantChat.items=[];C.reset();U.reset();I.reset();D.reset()}
+function reset(){fallback=0;staged=0;els.assistantChat.items=[];C.reset();U.reset();I.reset();D.reset()}
 async function ask(q){els.assistantInput.value=q;await window.askRakizaAssistant();return html()}
 
 (async()=>{
@@ -55,8 +57,22 @@ async function ask(q){els.assistantInput.value=q;await window.askRakizaAssistant
   ok(C.state.pending.draft.period?.start==='2026-09-13','period-only reply binds current draft to current week',C.state.pending.draft.period);
   ok(out.includes('ربطت المسودة'),'period reply is conversational rather than unsupported capability',out);
   out=await ask('قم بمسودة تشغيلية لخطة التواجد هذه');
-  ok(out.includes('مسودة خطة التواجد'),'existing draft request renders operational draft',out);
+  ok(staged===1&&C.state.pending.draft.status==='operational_draft','existing draft transfers to the operational roster editor');
+  ok(out.includes('مسودة تشغيلية')&&out.includes('اعتماد وحفظ'),'operational draft explains the final approval step',out);
   ok(!out.includes('القدرة التشغيلية لهذا النوع لم نبنها بعد'),'draft request never falls into generic capability gap',out);
+
+  reset();
+  await ask('هذا الأسبوع عمار صباح والجمعة اوف ومعتوق مساء والاحد اوف');
+  out=await ask('اعتمد');
+  ok(staged===1&&C.state.pending.draft.status==='operational_draft','plain approval reaches the operational roster bridge through the full dialogue stack');
+  ok(out.includes('اعتماد وحفظ'),'plain approval keeps database save as the final explicit screen action',out);
+
+  reset();
+  await ask('عمار صباح والجمعة اوف ومعتوق مساء والاحد اوف');
+  out=await ask('اعتمد');
+  ok(staged===0&&out.includes('تحديد أسبوع'),'approval asks only for the missing week before operational transfer',out);
+  out=await ask('هذا الأسبوع');
+  ok(staged===1&&C.state.pending.draft.status==='operational_draft','week clarification automatically resumes the requested operational transfer');
 
   reset();
   out=await ask('ماهي آخر خطة تواجد تم تسجيلها');

@@ -1,5 +1,6 @@
 global.window={};
 let delegated=0;
+let staged=0;
 const employees=[
   {id:'e1',full_name:'محمد غرم الله محمد الغامدي',active:true},
   {id:'e2',full_name:'محمد عبده',active:true},
@@ -18,6 +19,7 @@ window.RakizaAI={
     period:/هذا الشهر/.test(q)?{type:'month',month:'2026-09',label:'هذا الشهر'}:null
   }})
 };
+window.RakizaAI.rosterOperational={stage:async draft=>{staged++;draft.status='operational_draft';draft.approvedInConversation=true;draft.operationalStage={status:'staged'};return{ok:true,entryCount:35,missingCells:0}}};
 window.askRakizaAssistant=async()=>{delegated++;return'delegated'};
 const els={assistantInput:{value:''},assistantChat:{items:[],insertAdjacentHTML(_p,h){this.items.push(h)},lastElementChild:{scrollIntoView(){}}}};
 global.document={getElementById:id=>els[id]||null};window.document=global.document;
@@ -65,9 +67,11 @@ f=C.interpret('خله الخميس اجازة',{entities:{}});ok(f.action==='upd
 const beforeAmmar=JSON.stringify(ass(C.state.pending.draft,'e3'));
 f=C.interpret('لا معتوق الحارثي اجازته الاثنين',{entities:{}});ok(f.action==='update_roster_draft','natural correction recognized',f);await C.respond(f);ok(ass(C.state.pending.draft,'e4').overrides[1]==='D/O','Matuq Monday off added by correction');ok(JSON.stringify(ass(C.state.pending.draft,'e3'))===beforeAmmar,'Ammar preserved while correcting Matuq');
 
-// Review/write safety: conversation is useful but does not silently write operational data.
-f=C.interpret('اعتمد',{entities:{}});ok(f.action==='approve_draft','approval recognized against pending draft');html=await C.respond(f);ok(C.state.pending.draft.approvedInConversation===true,'conversation review marked');ok(html.includes('لم أحفظ')||html.includes('لم يتم حفظ'),'approval does not pretend operational save',html);
-f=C.interpret('احفظ الخطة',{entities:{}});ok(f.action==='safe_write','sensitive save intercepted');html=await C.respond(f);ok(html.includes('لن أكتب')||html.includes('الحفظ'),'write safety explained',html);
+// Approval transfers the reviewed content to the operational editor without silently saving it.
+C.state.pending.draft.period={type:'week',start:'2026-09-13',end:'2026-09-19',label:'هذا الأسبوع'};
+f=C.interpret('اعتمد',{entities:{}});ok(f.action==='approve_draft','approval recognized against pending draft');html=await C.respond(f);ok(C.state.pending.draft.approvedInConversation===true,'conversation review marked');
+ok(staged===1,'approval sends the roster to the operational draft bridge');ok(C.state.pending.draft.status==='operational_draft','draft is marked as operationally staged');ok(html.includes('مسودة تشغيلية')&&html.includes('اعتماد وحفظ'),'approval explains the final operational approval step',html);
+f=C.interpret('احفظ الخطة',{entities:{}});ok(f.action==='safe_write','sensitive save intercepted');html=await C.respond(f);ok(staged===2&&html.includes('اعتماد وحفظ'),'save language stages the editor but still requires final approval',html);
 
 // Social dialogue is handled centrally, not as an execution command.
 C.reset();f=C.interpret('السلام عليكم',{entities:{}});ok(f.action==='social'&&f.mode==='conversation','greeting is conversation');html=await C.respond(f);ok(html.includes('وعليكم السلام'),'greeting response natural',html);

@@ -5,7 +5,7 @@ const AI=window.RakizaAI=window.RakizaAI||{};
 const C=AI.conversation;
 if(!C||AI.dialogue?.version)return;
 
-const VERSION='1.0.0';
+const VERSION='1.1.0';
 const baseAsk=window.askRakizaAssistant;
 const STATE={pending:null,lastCapability:null,lastRoster:null,turns:[]};
 const MAX_HISTORY_WEEKS=52;
@@ -34,11 +34,12 @@ function currentDraft(){return C.state?.pending?.draft?.kind==='roster'?C.state.
 function isRosterText(n){return /تواجد|روستر|جدول دوام|خطه دوام|خطة دوام/.test(n)}
 function isPeriodOnly(n){return /^(هذا|هاذا|هال|ال)?\s*(ال)?اسبوع|^(ال)?اسبوع (الحالي|الجاي|القادم|الماضي|السابق)|^هذا الاسبوع الحالي$/.test(n)}
 function wantsRosterDraft(n){return /مسود|حوّل|حول|تحويل|جهز|سوي|انش|ابني/.test(n)&&(isRosterText(n)||/هذه|هذي|ها|نفسها|الخطة|الخطه/.test(n))}
+function wantsOperationalDraft(n){return /مسود[هة] تشغيلي|مسود[هة] عمليه|حول.*(?:ل|الى) (?:ال)?تشغيل|نقل.*(?:جدول|شاشه) (?:خطه|خطة) التواجد/.test(n)}
 function historyDirection(n){if(/اقدم|الأقدم|قديمه|قديمة|اول خطه|اول خطة/.test(n))return'oldest';if(/اخر خطه|آخر خطة|احدث|الأحدث|اخر تواجد|آخر تواجد|تم تسجيلها|مسجله|مسجلة/.test(n))return'latest';if(STATE.lastCapability==='roster_history'&&/^(اقدم|الأقدم|احدث|الأحدث|اخر|آخر)(?: خطه| خطة)?$/.test(n))return/اقدم|الأقدم/.test(n)?'oldest':'latest';return null}
 function rosterHistoryQuestion(n){return historyDirection(n)&&((isRosterText(n)||/خطه|خطة/.test(n))||STATE.lastCapability==='roster_history')}
 function capabilityQuestion(n){return /ماذا تقدر|وش تقدر|ايش تقدر|وش تسوي|ايش تسوي|قدراتك|وش تقدر تسوي/.test(n)}
 
-function draftWithPeriod(draft,period){const next=clone(draft);next.period=clone(period);next.updatedAt=new Date().toISOString();next.approvedInConversation=false;return next}
+function draftWithPeriod(draft,period){const next=clone(draft);next.period=clone(period);next.updatedAt=new Date().toISOString();next.status='draft';next.approvedInConversation=false;delete next.operationalStage;return next}
 function setDraft(draft){C.state.pending=C.state.pending||{};C.state.pending.draft=draft;C.state.pending.question=C.nextClarification?C.nextClarification(draft):null;C.state.context=C.state.context||{};C.state.context.domain='attendance';C.state.context.period=clone(draft.period);STATE.lastCapability='roster_draft';return draft}
 function renderDraft(draft){return C.renderRosterDraft?C.renderRosterDraft(draft):'<b>مسودة خطة التواجد جاهزة للمراجعة.</b>'}
 
@@ -49,7 +50,7 @@ function rosterRowsHtml(result,title){const grouped=new Map();for(const r of res
 async function rosterRowsForWeek(start){const fn=AI.attendance?.rosterEntriesForPeriod;if(typeof fn!=='function')throw Error('قراءة أرشيف خطة التواجد غير متاحة');return await fn(weekPeriod(start))}
 async function findRoster(direction){const current=sunday(baseDate()),found=[];for(let offset=0;offset<MAX_HISTORY_WEEKS;offset+=6){const batch=[];for(let i=0;i<6&&offset+i<MAX_HISTORY_WEEKS;i++){const start=addDays(current,-7*(offset+i));batch.push({start,promise:rosterRowsForWeek(start).catch(()=>[])})}const results=await Promise.all(batch.map(x=>x.promise));for(let i=0;i<batch.length;i++){if(results[i]?.length){const item={period:weekPeriod(batch[i].start),rows:results[i]};if(direction==='latest')return item;found.push(item)}}}return direction==='oldest'?found[found.length-1]||null:found[0]||null}
 
-function capabilityHtml(){const draft=currentDraft();let h='<b>أقدر أكمل معك حواريًا، مو مجرد أفهم النص.</b><div style="margin-top:7px">';h+='أقدر أبني وأعدل مسودة خطة التواجد، أحدد أسبوعها، أسترجع آخر أو أقدم خطة محفوظة ضمن الأرشيف المتاح، وأحوّل الخطة المحفوظة لمسودة جديدة للمراجعة. وإذا نقصني جزء واحد أسألك عنه وأحتفظ بكل اللي فهمته.</div>';if(draft)h+='<div class="notice ok" style="margin-top:8px">وعندي الآن مسودة خطة تواجد في السياق؛ أقدر أكمل عليها مباشرة.</div>';h+='<div class="mut" style="margin-top:8px">الحفظ التشغيلي الفعلي يبقى منفصلًا ولا يتم باجتهاد مني.</div>';return h}
+function capabilityHtml(){const draft=currentDraft();let h='<b>أقدر أكمل معك حواريًا، مو مجرد أفهم النص.</b><div style="margin-top:7px">';h+='أقدر أبني وأعدل مسودة خطة التواجد، أحدد أسبوعها، أسترجع آخر أو أقدم خطة محفوظة، وأحوّل الخطة المحفوظة لمسودة جديدة. وبعد مراجعتك أنقلها إلى جدول خطة التواجد كمسودة تشغيلية قابلة للتعديل والاعتماد النهائي.</div>';if(draft)h+='<div class="notice ok" style="margin-top:8px">وعندي الآن مسودة خطة تواجد في السياق؛ أقدر أكمل عليها مباشرة.</div>';h+='<div class="mut" style="margin-top:8px">لا تصبح الخطة تشغيلية محفوظة إلا بعد اعتمادها النهائي داخل شاشة خطة التواجد.</div>';return h}
 
 function optionsHtml(stage){if(stage==='domain')return'<b>أحتاج أحدد المجال فقط.</b><div class="mut" style="margin-top:6px">تقصد المبيعات، النواقص، الجاهزية، الحضور والتواجد، المهام، الإجراءات، أو تحليل المعرض كامل؟</div>';if(stage==='operation')return'<b>فهمت المجال، وباقي أعرف وش تبي أسوي بالضبط.</b><div class="mut" style="margin-top:6px">تبغاني أعرض المعلومات، أحللها، أقارنها، أو أجهز لك مسودة؟</div>';if(stage==='roster_period')return'<b>المسودة جاهزة عندي، وباقي الأسبوع فقط.</b><div class="mut" style="margin-top:6px">تقصد هذا الأسبوع، الأسبوع القادم، أو أسبوع ثاني؟</div>';return'<b>أحتاج توضيح نقطة واحدة عشان أكمل معك.</b>'}
 function startPending(stage,original,extra={}){STATE.pending={stage,original:String(original||''),attempts:0,...clone(extra)};return optionsHtml(stage)}
@@ -60,7 +61,7 @@ function operationFromReply(n){if(/اعرض|ورني|عطني|استفسار/.te
 function domainCue(d){return{sales:'المبيعات',shortages:'النواقص',readiness:'الجاهزية',attendance:'خطة التواجد',tasks:'المهام',actions:'الإجراءات والمتابعة',store:'تحليل المعرض'}[d]||d||''}
 
 async function handlePending(text){const p=STATE.pending;if(!p)return null;p.attempts=(p.attempts||0)+1;const n=norm(text);
-  if(p.stage==='roster_period'){const period=periodFromText(text);if(period?.type==='week'){const d=setDraft(draftWithPeriod(p.draft||currentDraft(),period));clearPending();return`<div class="notice ok"><b>تمام، ثبتت الفترة على ${esc(period.label||period.start)}.</b></div>${renderDraft(d)}`}return optionsHtml('roster_period')}
+  if(p.stage==='roster_period'){const period=periodFromText(text);if(period?.type==='week'){const next=p.next,d=setDraft(draftWithPeriod(p.draft||currentDraft(),period));clearPending();if(next==='stage_operational'&&typeof C.stageOperationalDraft==='function')return await C.stageOperationalDraft(d);return`<div class="notice ok"><b>تمام، ثبتت الفترة على ${esc(period.label||period.start)}.</b></div>${renderDraft(d)}`}return optionsHtml('roster_period')}
   if(p.stage==='domain'){const d=domainFromReply(n);if(d){const hist=d==='attendance'?historyDirection(n):null,op=operationFromReply(n);record('clarification',text,{resolvedDomain:d});if(hist){clearPending();return{reprocess:`${hist==='oldest'?'اقدم':'اخر'} خطة تواجد تم تسجيلها`}}if(op){const combined=`${p.original} ${domainCue(d)} ${text}`;clearPending();return{reprocess:combined}}STATE.pending={stage:'operation',original:p.original,attempts:0,domain:d};return optionsHtml('operation')}if(p.attempts>=3)return'<b>ما زال المجال غير واضح عندي.</b><div class="mut" style="margin-top:6px">اكتب اسم المجال فقط، مثل «المبيعات» أو «خطة التواجد»، وأنا أكمل نفس الطلب بدون ما تعيده.</div>';return optionsHtml('domain')}
   if(p.stage==='operation'){if(p.domain==='attendance'){const hist=historyDirection(n);if(hist){clearPending();record('clarification',text,{resolvedOperation:'roster_history',direction:hist});return{reprocess:`${hist==='oldest'?'اقدم':'اخر'} خطة تواجد تم تسجيلها`}}}const op=operationFromReply(n);if(op){const combined=`${p.original} ${domainCue(p.domain)} ${text}`;clearPending();record('clarification',text,{resolvedOperation:op});return{reprocess:combined}}if(p.attempts>=3)return'<b>ما زال المطلوب نفسه غير واضح.</b><div class="mut" style="margin-top:6px">قل فقط: «اعرض»، «حلل»، «قارن»، أو «جهز مسودة»، وبكمل على نفس الموضوع.</div>';return optionsHtml('operation')}
   clearPending();return null
@@ -68,8 +69,14 @@ async function handlePending(text){const p=STATE.pending;if(!p)return null;p.att
 
 async function handleRosterConversation(q,n){const draft=currentDraft();
   if(capabilityQuestion(n)&&((draft)||C.state?.context?.domain==='attendance'||STATE.lastCapability?.startsWith('roster')))return capabilityHtml();
-  if(draft&&isPeriodOnly(n)){const p=periodFromText(q);if(p?.type==='week'){const d=setDraft(draftWithPeriod(draft,p));return`<div class="notice ok"><b>تمام، ربطت المسودة بـ${esc(p.label||'الأسبوع المحدد')}.</b></div>${renderDraft(d)}`}}
+  if(draft&&isPeriodOnly(n)){const p=periodFromText(q);if(p?.type==='week'){const d=setDraft(draftWithPeriod(draft,p));if(d.operationalStageRequested&&typeof C.stageOperationalDraft==='function')return await C.stageOperationalDraft(d);return`<div class="notice ok"><b>تمام، ربطت المسودة بـ${esc(p.label||'الأسبوع المحدد')}.</b></div>${renderDraft(d)}`}}
   const direction=historyDirection(n);if(rosterHistoryQuestion(n)){const r=await findRoster(direction);STATE.lastCapability='roster_history';STATE.lastRoster=r;if(!r)return`<b>ما وجدت خطة تواجد محفوظة ضمن آخر ${MAX_HISTORY_WEEKS} أسبوعًا.</b><div class="mut" style="margin-top:6px">إذا تبي أوسّع نطاق البحث أقدر أكمل معك.</div>`;return rosterRowsHtml(r,direction==='oldest'?'أقدم خطة تواجد محفوظة وجدتها':'آخر خطة تواجد محفوظة')}
+  if(draft&&wantsOperationalDraft(n)){
+    const target=periodFromText(q)||draft.period||C.state?.context?.period||null,d=setDraft(target?draftWithPeriod(draft,target):draft);
+    if(!d.period){STATE.pending={stage:'roster_period',original:q,attempts:0,draft:clone(d),next:'stage_operational'};return`${renderDraft(d)}${optionsHtml('roster_period')}`}
+    STATE.lastCapability='roster_operational_draft';
+    if(typeof C.stageOperationalDraft==='function')return await C.stageOperationalDraft(d)
+  }
   if(wantsRosterDraft(n)){
     const target=periodFromText(q)||draft?.period||C.state?.context?.period||null;
     if(draft){const d=setDraft(target?draftWithPeriod(draft,target):draft);if(!d.period){STATE.pending={stage:'roster_period',original:q,attempts:0,draft:clone(d)};return`${renderDraft(d)}${optionsHtml('roster_period')}`}return renderDraft(d)}
@@ -82,6 +89,7 @@ async function handleRosterConversation(q,n){const draft=currentDraft();
 async function process(q,{alreadyChatted=false}={}){const n=norm(q);
   if(STATE.pending){const r=await handlePending(q);if(r?.reprocess)return process(r.reprocess,{alreadyChatted:true});if(r)return r}
   const roster=await handleRosterConversation(q,n);if(roster)return roster;
+  try{const direct=C.interpret(q,{raw:q,entities:{}});if(direct?.action&&direct.action!=='delegate')return null}catch{}
   const intent=intentFor(q);
   if(intent&&(!intent.domain||intent.confidence<0.42)&&!/^\s*(السلام|هلا|مرحبا|شكرا|تمام|ممتاز)/.test(n))return startPending('domain',q,{intent:clone(intent)});
   if(intent?.domain&&intent.operation==='conversation'&&!capabilityQuestion(n))return startPending('operation',q,{domain:intent.domain,intent:clone(intent)});

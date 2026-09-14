@@ -4,7 +4,7 @@
 const AI=window.RakizaAI=window.RakizaAI||{};
 if(AI.conversation?.version)return;
 
-const RAC_VERSION='1.0.0';
+const RAC_VERSION='1.1.0';
 const STATE={
   context:{domain:null,period:null,topic:null,activePersonId:null,lastFrame:null},
   pending:{draft:null,question:null},
@@ -127,7 +127,7 @@ function mergeRosterDraft(draft,text,people=resolvePeople(text)){
   if(/كلهم\s*(?:صباح|صباحي)/.test(n))for(const a of next.assignments)a.defaultStatus='Morning';
   const replaceOff=/^(لا |قصدي|اقصد|أقصد|خله|خلي|خلها|خليها)/.test(n);
   for(const p of patch.assignments){const key=assignmentKey(p),old=next.assignments.find(x=>assignmentKey(x)===key);if(old){if(p.defaultStatus)old.defaultStatus=p.defaultStatus;if(replaceOff&&Object.values(p.overrides||{}).some(v=>STATUSES.find(s=>s.value===v)?.kind==='off')){for(const [day,val] of Object.entries(old.overrides||{}))if(STATUSES.find(s=>s.value===val)?.kind==='off')delete old.overrides[day]}old.overrides={...old.overrides,...p.overrides};old.source=[old.source,p.source].filter(Boolean).join(' | ')}else next.assignments.push(p)}
-  if(patch.period)next.period=patch.period;next.updatedAt=new Date().toISOString();next.approvedInConversation=false;return next
+  if(patch.period)next.period=patch.period;next.updatedAt=new Date().toISOString();next.status='draft';next.approvedInConversation=false;delete next.operationalStage;return next
 }
 function unresolvedAssignments(draft){return(draft?.assignments||[]).filter(x=>!x.resolved||!x.employee_id)}
 function nextClarification(draft){const a=unresolvedAssignments(draft)[0];if(!a)return null;return{type:'employee',assignmentId:a.id,mention:a.mention,candidates:a.candidates||[]}}
@@ -137,7 +137,9 @@ function exceptionsText(a){const entries=Object.entries(a.overrides||{}).sort((x
 function renderRosterDraft(draft,{compact=false}={}){
   if(!draft?.assignments?.length)return'<b>المسودة موجودة، لكن لم أستخرج تكليفات واضحة بعد.</b>';
   const rows=draft.assignments.map(a=>`<tr><td>${esc(assignmentDisplayName(a))}${!a.resolved?' ⚠️':''}</td><td>${esc(statusLabel(a.defaultStatus))}</td><td>${esc(exceptionsText(a))}</td></tr>`).join('');
-  const q=nextClarification(draft);let note=`<div class="notice ok" style="margin-top:9px">هذه <b>مسودة حوارية فقط</b> ولم يتم حفظ أي تغيير تشغيلي.</div>`;
+  const q=nextClarification(draft);let note=draft.status==='operational_draft'
+    ?`<div class="notice ok" style="margin-top:9px">تم نقل هذه النسخة إلى شاشة خطة التواجد كـ<b>مسودة تشغيلية</b>. لن تصبح خطة محفوظة حتى تضغط «اعتماد وحفظ الخطة الأصلية» داخل الشاشة.</div>`
+    :`<div class="notice ok" style="margin-top:9px">هذه <b>مسودة حوارية للمراجعة</b>. بعد أن تقول «اعتمد» سأنقلها إلى جدول خطة التواجد كمسودة تشغيلية قابلة للتعديل والاعتماد النهائي.</div>`;
   if(!draft.period)note+=`<div class="notice" style="margin-top:8px">فهمت التوزيع، لكن الأسبوع غير محدد بعد. يمكن تحديده لاحقًا قبل أي حفظ.</div>`;
   if(q){const names=q.candidates.map(employeeName).filter(Boolean);note+=`<div class="notice" style="margin-top:8px"><b>فهمت بقية الخطة.</b> بقي فقط الاسم «${esc(q.mention)}»${names.length?`: عندي ${esc(names.join(' أو '))}`:''}. اكتب الاسم الكامل فقط وسأكمل نفس المسودة بدون فقد بقية التفاصيل.</div>`}
   return`<b>${compact?'الخطة في المسودة':'مسودة خطة التواجد'} — ${esc(periodText(draft.period))}</b><div class="scroll" style="margin-top:9px"><table><thead><tr><th>الموظف</th><th>الدوام الأساسي</th><th>الاستثناءات</th></tr></thead><tbody>${rows}</tbody></table></div>${note}`
@@ -180,16 +182,27 @@ function socialResponse(kind){if(kind==='greeting')return'<b>وعليكم الس
 function draftPersonAnswer(frame){const draft=STATE.pending.draft,people=internalPeople(frame).filter(x=>x.resolved);if(!draft||!people.length)return renderRosterDraft(draft);const parts=[];for(const p of people){const a=findDraftAssignment(draft,p.employee);STATE.context.activePersonId=p.employee.id;if(a)parts.push(`<div class="task"><b>${esc(employeeName(p.employee))}</b><div class="mut">الدوام الأساسي: ${esc(statusLabel(a.defaultStatus))}<br>الاستثناءات: ${esc(exceptionsText(a))}</div></div>`);else parts.push(`<div class="task"><b>${esc(employeeName(p.employee))}</b><div class="mut">لم أضع له تكليفًا في المسودة الحالية.</div></div>`)}return`<b>حسب المسودة الحالية:</b>${parts.join('')}`}
 function draftOpinion(){return`<b>أقدر أراجع اتساق المسودة، لكن ما راح أحكم أنها «أفضل توزيع» بدون قواعد توزيع معتمدة.</b><div class="mut" style="margin-top:6px">حاليًا أقدر أتحقق من أن كل اسم له دوام واضح، وأن الإجازات والاستثناءات غير متعارضة، وأعرض لك أي نقطة ناقصة قبل الحفظ.</div>`}
 function explainQuestion(){const q=STATE.pending.question;if(q?.type==='employee')return`<b>سألت عن الاسم فقط لأن هذا الجزء له أكثر من مطابق في فريق المعرض.</b><div class="mut">بقية طلبك مفهومة ومحفوظة؛ ما أحتاج منك تعيد الخطة كاملة.</div>`;return'<b>السؤال كان فقط لإكمال نقطة ناقصة في السياق.</b>'}
-function safeWriteResponse(){return`<b>الخطة ما زالت مسودة مراجعة.</b><div class="notice" style="margin-top:8px">لن أكتب أو أستبدل خطة التواجد التشغيلية من طبقة الحوار مباشرة. أقدر أحافظ على المسودة، أراجعها معك، وأجهزها لمسار الاعتماد والتنفيذ عندما يكون الربط الحساس معتمدًا.</div>${renderRosterDraft(STATE.pending.draft,{compact:true})}`}
-function approveDraftResponse(){const d=STATE.pending.draft;d.approvedInConversation=true;d.reviewedAt=new Date().toISOString();return`<div class="notice ok"><b>اعتمدت المسودة داخل الحوار كمحتوى مراجَع.</b></div><div class="mut">لم أحفظ أو أستبدل الخطة التشغيلية الأصلية؛ الحفظ الفعلي يبقى خطوة حساسة منفصلة.</div>${renderRosterDraft(d,{compact:true})}`}
+async function stageOperationalDraftResponse(){
+  const d=STATE.pending.draft,bridge=AI.rosterOperational;
+  if(!d?.period?.start){if(d)d.operationalStageRequested=true;return`<b>بقي تحديد أسبوع الخطة قبل تحويلها للتشغيل.</b><div class="mut" style="margin-top:6px">حدد هذا الأسبوع أو الأسبوع القادم، وسأكمل على نفس المسودة.</div>`}
+  const q=nextClarification(d);if(q){d.operationalStageRequested=true;return`<b>بقي تحديد اسم واحد قبل التحويل التشغيلي.</b><div class="mut" style="margin-top:6px">اكتب الاسم الكامل المقصود لـ«${esc(q.mention)}»، وسأحافظ على بقية المسودة.</div>`}
+  if(!bridge?.stage)return`<b>المسودة الحوارية محفوظة، لكن الربط مع شاشة خطة التواجد غير متاح في هذه النسخة.</b>${renderRosterDraft(d,{compact:true})}`;
+  const result=await bridge.stage(d);
+  if(!result?.ok)return`<div class="notice err"><b>لم أحوّل المسودة إلى الخطة التشغيلية.</b><div style="margin-top:5px">${esc(result?.message||'تعذر تجهيز شاشة خطة التواجد.')}</div></div>${renderRosterDraft(d,{compact:true})}`;
+  delete d.operationalStageRequested;
+  const missing=result.missingCells?` بقيت ${result.missingCells} خانة فارغة لتراجعها أو تكملها قبل الاعتماد النهائي.`:' الجدول مكتمل وجاهز للمراجعة.';
+  return`<div class="notice ok"><b>حوّلتها إلى مسودة تشغيلية داخل شاشة خطة التواجد.</b><div style="margin-top:5px">راجع الجدول وعدّله عند الحاجة، ثم اضغط «اعتماد وحفظ الخطة الأصلية» لتصبح الخطة تشغيلية ومحفوظة.${missing}</div></div>`
+}
+async function safeWriteResponse(){return stageOperationalDraftResponse()}
+async function approveDraftResponse(){return stageOperationalDraftResponse()}
 
 async function respond(frame){
   const people=internalPeople(frame);
   if(frame.action==='social')return socialResponse(socialKind(frame.raw));
-  if(frame.action==='clarification'){const r=applyClarification(frame.raw);if(r)return r.html}
+  if(frame.action==='clarification'){const r=applyClarification(frame.raw);if(r){const d=STATE.pending.draft;if(r.ok&&d?.operationalStageRequested&&!STATE.pending.question&&d.period?.start)return`${r.html}${await stageOperationalDraftResponse()}`;return r.html}}
   if(frame.action==='cancel_draft'){STATE.pending.draft=null;STATE.pending.question=null;STATE.context.activePersonId=null;return'<b>ألغيت المسودة الحوارية.</b><div class="mut">لم يتغير أي سجل تشغيلي.</div>'}
-  if(frame.action==='approve_draft')return approveDraftResponse();
-  if(frame.action==='safe_write')return safeWriteResponse();
+  if(frame.action==='approve_draft')return await approveDraftResponse();
+  if(frame.action==='safe_write')return await safeWriteResponse();
   if(frame.action==='show_draft')return renderRosterDraft(STATE.pending.draft);
   if(frame.action==='draft_opinion')return draftOpinion();
   if(frame.action==='explain_question')return explainQuestion();
@@ -227,6 +240,7 @@ AI.conversation={
   parseRosterDraft,
   mergeRosterDraft,
   renderRosterDraft,
+  stageOperationalDraft:stageOperationalDraftResponse,
   nextClarification,
   respond,
   statusLabel,
