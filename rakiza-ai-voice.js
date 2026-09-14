@@ -94,5 +94,5 @@ function limit(message,question=''){
 }
 function reset(){STATE.turn=0;STATE.lastLead=null;STATE.lastKind=null;STATE.lastDomain=null}
 
-AI.voice={version:VERSION,state:STATE,profile:'professional-arabic-saudi',present,naturalize,classify,stripHtml,clarify,limit,reset};
+AI.voice={version:VERSION,state:STATE,profile:'arabic-white-saudi',tone:'professional-executive',present,naturalize,classify,stripHtml,clarify,limit,reset};
 })();
