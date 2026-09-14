@@ -14,7 +14,7 @@ sandbox.document={
 };
 vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync('rakiza-ai-reasoning.js','utf8'),sandbox,{filename:'rakiza-ai-reasoning.js'});
-ok(loaded.length===8,'eight runtime layers loaded',loaded);
+ok(loaded.length===9,'nine runtime layers loaded',loaded);
 ok(loaded[0]==='rakiza-ai-reasoning-core.js','reasoning core loads first',loaded);
 ok(loaded[1]==='rakiza-ai-store-intelligence.js','store intelligence loads second',loaded);
 ok(loaded[2]==='rakiza-ai-store-reasoning-bridge.js','store reasoning bridge loads third',loaded);
@@ -22,7 +22,8 @@ ok(loaded[3]==='rakiza-ai-conversation.js','conversation intelligence loads befo
 ok(loaded[4]==='rakiza-ai-conversation-universal.js','universal conversation orchestration loads before compatibility',loaded);
 ok(loaded[5]==='rakiza-ai-conversation-compat.js','natural roster compatibility remains available',loaded);
 ok(loaded[6]==='rakiza-ai-intent.js','Intent Intelligence loads before dialogue resolver',loaded);
-ok(loaded[7]==='rakiza-ai-dialogue.js','dialogue capability resolver loads last',loaded);
+ok(loaded[7]==='rakiza-ai-dialogue.js','dialogue capability resolver loads before voice',loaded);
+ok(loaded[8]==='rakiza-ai-voice.js','conversational voice loads last',loaded);
 ok(!!sandbox.window.RakizaAI.reasoning,'shared reasoning available');
 ok(!!sandbox.window.RakizaAI.store,'store intelligence available');
 ok(!!sandbox.window.RakizaAI.store.reasoningBridge,'store reasoning bridge available');
@@ -31,6 +32,8 @@ ok(!!sandbox.window.RakizaAI.conversationUniversal,'universal conversation orche
 ok(!!sandbox.window.RakizaAI.conversationCompat,'roster conversation compatibility available');
 ok(!!sandbox.window.RakizaAI.intent,'Intent Intelligence available');
 ok(!!sandbox.window.RakizaAI.dialogue,'dialogue capability resolver available');
+ok(!!sandbox.window.RakizaAI.voice,'conversational voice available');
+ok(sandbox.window.RakizaAI.voice.profile==='arabic-white-saudi','voice uses approved Arabic white Saudi profile');
 ok(sandbox.window.askRakizaAssistant.__rakizaDialogueWrapped===true,'dialogue resolver is outer ask layer');
 ok(sandbox.window.askRakizaAssistant.__base?.__rakizaUniversalConversationWrapped===true,'universal conversation remains directly below dialogue resolver');
 const frame=sandbox.window.RakizaAI.conversation.interpret('انشاء خطة تواجد عمار صباح والجمعه اجازه ومعتوق مساء والثلاثاء اجازه',{entities:{}});

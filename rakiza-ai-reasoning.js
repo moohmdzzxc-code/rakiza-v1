@@ -32,7 +32,9 @@ loadScript('rakiza-ai-reasoning-core.js',()=>{
         loadScript('rakiza-ai-conversation-universal.js',()=>{
           loadScript('rakiza-ai-conversation-compat.js',()=>{
             loadScript('rakiza-ai-intent.js',()=>{
-              loadScript('rakiza-ai-dialogue.js');
+              loadScript('rakiza-ai-dialogue.js',()=>{
+                loadScript('rakiza-ai-voice.js');
+              });
             });
           });
         });

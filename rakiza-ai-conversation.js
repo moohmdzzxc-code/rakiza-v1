@@ -46,7 +46,7 @@ function sunday(v){const d=dObj(v);d.setDate(d.getDate()-d.getDay());return iso(
 function statusLabel(v){return STATUSES.find(x=>x.value===v)?.label||v||'غير محدد'}
 function dayLabel(i){return DAYS.find(x=>x.i===Number(i))?.label||String(i)}
 function hasAny(n,arr){return arr.some(x=>n.includes(norm(x)))}
-function chat(role,html){const c=document.getElementById('assistantChat');if(!c)return;const mine=role==='user';c.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:${mine?'flex-start':'flex-end'}"><div class="task" style="max-width:92%;margin:0;background:${mine?'#eef3f8':'#fff'};border-color:${mine?'#d6e0ea':'#e3e7ec'}">${html}</div></div>`);c.lastElementChild?.scrollIntoView?.({behavior:'smooth',block:'nearest'})}
+function chat(role,html){const c=document.getElementById('assistantChat');if(!c)return;const mine=role==='user';if(!mine&&AI.voice?.present)html=AI.voice.present(html,{source:'conversation',domain:AI.conversation?.state?.context?.domain||AI.conversationUniversal?.state?.lastRoute||null});c.insertAdjacentHTML('beforeend',`<div style="display:flex;justify-content:${mine?'flex-start':'flex-end'}"><div class="task" style="max-width:92%;margin:0;background:${mine?'#eef3f8':'#fff'};border-color:${mine?'#d6e0ea':'#e3e7ec'}">${html}</div></div>`);c.lastElementChild?.scrollIntoView?.({behavior:'smooth',block:'nearest'})}
 
 function tokensWithPos(n){const out=[];let i=0;for(const raw of String(n||'').split(' ')){if(!raw)continue;const start=n.indexOf(raw,i);out.push({raw,start,end:start+raw.length});i=start+raw.length}return out}
 function overlaps(a,b){return a.start<b.end&&b.start<a.end}
