@@ -51,10 +51,13 @@ function parseDisplayDate(v,month,map=dateMaps(month)){
   return map.get(`${Number(mm[1])}/${Number(mm[2])}/${mm[3]}`)||map.get(`${pad(Number(mm[1]))}/${pad(Number(mm[2]))}/${mm[3]}`)||null;
 }
 
+function removeOpeningSalesMetrics(){
+  ['quickMonthTarget','quickMonthAch','quickDailyTarget'].forEach(id=>tf$(id)?.closest('.metric')?.remove());
+}
+
 function ensureTargetUi(){
   const opening=tf$('opening');if(!opening)return;
-  const firstMetrics=opening.querySelector('.card .metrics');
-  if(firstMetrics&&!tf$('quickDailyTarget'))firstMetrics.insertAdjacentHTML('beforeend','<div class="metric"><span class="mut">مستهدف اليوم</span><strong id="quickDailyTarget">—</strong></div>');
+  removeOpeningSalesMetrics();
   if(tf$('monthlyTargetCard'))return;
   const o2=tf$('o2');if(!o2)return;
   const card=document.createElement('div');card.id='monthlyTargetCard';card.className='card';card.style.marginTop='14px';
@@ -70,11 +73,7 @@ function ensureTargetUi(){
   tf$('monthlyTargetFile')?.addEventListener('change',monthlyTargetFileChanged);
 }
 
-function setDailyMetric(){
-  const el=tf$('quickDailyTarget');if(!el)return;
-  const d=activeWorkDate(),r=targetPlan?.rows?.find(x=>x.target_date===d);
-  el.textContent=r?money(r.basic_target):'—';
-}
+function setDailyMetric(){removeOpeningSalesMetrics()}
 
 function ensureHomeSalesUi(){
   const home=tf$('home');if(!home)return;
@@ -105,14 +104,13 @@ function setHomeSalesMetrics(){
 }
 
 function renderTargetState(){
-  ensureTargetUi();setDailyMetric();setHomeSalesMetrics();
+  ensureTargetUi();setHomeSalesMetrics();
   const state=tf$('monthlyTargetState'),box=tf$('monthlyTargetImport');if(!state||!box)return;
   const m=activeMonth();
   if(targetLoading){state.innerHTML='<div class="notice">جاري تحميل مستهدفات الشهر...</div>';box.classList.add('hidden');return}
   if(targetPlan?.imported&&targetPlan.month===m){
-    const d=activeWorkDate(),today=targetPlan.rows.find(x=>x.target_date===d),source=targetPlan.rows[0]?.source_name||'الملف المعتمد';
-    state.innerHTML=`<div class="notice ok"><b>مستهدفات ${monthAr(m)} معتمدة.</b><div style="margin-top:6px">المصدر: ${safe(source)}</div></div>
-      <div class="metrics"><div class="metric"><span class="mut">مستهدف الشهر</span><strong>${money(targetPlan.total_basic)}</strong></div><div class="metric"><span class="mut">مستهدف اليوم</span><strong>${money(today?.basic_target)}</strong></div><div class="metric"><span class="mut">تحدي اليوم</span><strong>${money(today?.challenge_target)}</strong></div></div>`;
+    const source=targetPlan.rows[0]?.source_name||'الملف المعتمد';
+    state.innerHTML=`<div class="notice ok"><b>مستهدفات ${monthAr(m)} معتمدة.</b><div style="margin-top:6px">المصدر: ${safe(source)}</div></div>`;
     box.classList.add('hidden');
   }else{
     state.innerHTML=`<div class="notice"><b>لم يتم اعتماد مستهدفات ${monthAr(m)} بعد.</b></div>`;
@@ -188,7 +186,7 @@ if(typeof oldRenderHome==='function')window.renderHome=function(){oldRenderHome.
 const oldRenderOpening=window.renderOpening;
 if(typeof oldRenderOpening==='function')window.renderOpening=function(){oldRenderOpening.apply(this,arguments);ensureTargetUi();renderTargetState();loadTargetPlan()};
 const oldRenderOpeningQuick=window.renderOpeningQuick;
-if(typeof oldRenderOpeningQuick==='function')window.renderOpeningQuick=function(){oldRenderOpeningQuick.apply(this,arguments);setDailyMetric()};
+if(typeof oldRenderOpeningQuick==='function')window.renderOpeningQuick=function(){oldRenderOpeningQuick.apply(this,arguments);removeOpeningSalesMetrics()};
 const oldRenderSales=window.renderSales;
 if(typeof oldRenderSales==='function')window.renderSales=function(){oldRenderSales.apply(this,arguments);applySalesPlanLock()};
 const oldOpenSales=window.openSales;
