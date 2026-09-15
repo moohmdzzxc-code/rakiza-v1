@@ -1,0 +1,1 @@
+Temporary recovery marker for restoring the last known-good opening readiness state.
