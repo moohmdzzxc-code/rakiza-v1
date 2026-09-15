@@ -1,0 +1,60 @@
+name: Fix opening readiness safely
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-opening-readiness-v2.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore readiness and keep target metrics hidden
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('index.html')
+          s = p.read_text()
+
+          # Remove the previous runtime cleanup that deleted DOM nodes required by opening readiness.
+          s = re.sub(r'<script id="opening-target-cleanup">.*?</script>\s*', '', s, flags=re.S)
+
+          base = '<div class="metrics"><div class="metric"><span class="mut">اليوم</span><strong id="quickDay">—</strong></div><div class="metric"><span class="mut">التاريخ</span><strong id="quickDate">—</strong></div></div>'
+          compat = '<div class="metrics"><div class="metric"><span class="mut">اليوم</span><strong id="quickDay">—</strong></div><div class="metric"><span class="mut">التاريخ</span><strong id="quickDate">—</strong></div><div class="metric hidden"><span class="mut">مستهدف الشهر</span><strong id="quickMonthTarget">—</strong></div><div class="metric hidden"><span class="mut">نسبة المحقق من الشهر</span><strong id="quickMonthAch">—</strong></div><div class="metric hidden"><span class="mut">مستهدف اليوم</span><strong id="quickDailyTarget">—</strong></div></div>'
+          if 'id="quickMonthTarget"' not in s:
+              if base not in s:
+                  raise SystemExit('opening metrics block not found')
+              s = s.replace(base, compat, 1)
+
+          s = re.sub(r'<script src="monthly-targets\.js(?:\?[^\"]*)?"></script>', '<script src="monthly-targets.js?v=opening-readiness-v2-20260915"></script>', s, count=1)
+          p.write_text(s)
+
+          p = Path('monthly-targets.js')
+          s = p.read_text()
+          s = re.sub(
+              r"function removeOpeningSalesMetrics\(\)\{.*?\n\}",
+              "function removeOpeningSalesMetrics(){\n  ['quickMonthTarget','quickMonthAch','quickDailyTarget'].forEach(id=>tf$(id)?.closest('.metric')?.classList.add('hidden'));\n}",
+              s,
+              count=1,
+              flags=re.S,
+          )
+          p.write_text(s)
+          PY
+      - name: Verify
+        run: |
+          grep -q 'id="quickMonthTarget"' index.html
+          grep -q 'id="quickMonthAch"' index.html
+          grep -q 'id="quickDailyTarget"' index.html
+          ! grep -q 'opening-target-cleanup' index.html
+          grep -q 'id="checks"' index.html
+          node --check monthly-targets.js
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html monthly-targets.js
+          git diff --cached --quiet || git commit -m "Restore opening readiness without duplicate targets"
+          git push
