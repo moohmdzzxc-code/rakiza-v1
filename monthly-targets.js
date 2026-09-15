@@ -52,7 +52,7 @@ function parseDisplayDate(v,month,map=dateMaps(month)){
 }
 
 function removeOpeningSalesMetrics(){
-  ['quickMonthTarget','quickMonthAch','quickDailyTarget'].forEach(id=>tf$(id)?.closest('.metric')?.remove());
+  ['quickMonthTarget','quickMonthAch','quickDailyTarget'].forEach(id=>tf$(id)?.closest('.metric')?.classList.add('hidden'));
 }
 
 function ensureTargetUi(){
