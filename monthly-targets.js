@@ -76,8 +76,36 @@ function setDailyMetric(){
   el.textContent=r?money(r.basic_target):'—';
 }
 
+function ensureHomeSalesUi(){
+  const home=tf$('home');if(!home)return;
+  const metrics=home.querySelector('.card.wide .metrics');if(!metrics)return;
+  if(!tf$('hDailyTarget'))metrics.insertAdjacentHTML('beforeend','<div class="metric"><span class="mut">مستهدف اليوم</span><strong id="hDailyTarget">—</strong></div>');
+  if(!tf$('hMonthTarget'))metrics.insertAdjacentHTML('beforeend','<div class="metric"><span class="mut">مستهدف الشهر</span><strong id="hMonthTarget">—</strong></div>');
+  if(!tf$('hMonthAchieved'))metrics.insertAdjacentHTML('beforeend','<div class="metric"><span class="mut">المحقق من الشهر</span><strong id="hMonthAchieved">—</strong><div class="mut" id="hMonthAchievedPct" style="margin-top:4px;font-size:13px">—</div></div>');
+}
+
+function homeMonthSales(){
+  const a=getApp(),d=activeWorkDate(),prefix=d.slice(0,7);
+  let sales=(a?.recent||[]).filter(x=>x.work_date&&x.work_date.slice(0,7)===prefix&&x.work_date<d).reduce((sum,x)=>sum+Number(x.daily_sales||0),0);
+  if(a?.day?.work_date===d&&a.day.status==='مغلق')sales+=Number(a.day.daily_sales||0);
+  return sales;
+}
+
+function setHomeSalesMetrics(){
+  ensureHomeSalesUi();
+  const a=getApp();if(!a)return;
+  const d=activeWorkDate(),planReady=targetPlan?.imported&&targetPlan.month===activeMonth(),today=planReady?targetPlan.rows?.find(x=>x.target_date===d):null;
+  const daily=planReady?today?.basic_target:a.day?.daily_target;
+  const monthly=planReady?targetPlan.total_basic:(a.day?.monthly_target_snapshot??a.monthlyTarget);
+  const achieved=homeMonthSales(),pct=Number(monthly)>0?achieved/Number(monthly)*100:null;
+  if(tf$('hDailyTarget'))tf$('hDailyTarget').textContent=daily===null||daily===undefined||daily===''?'—':money(daily);
+  if(tf$('hMonthTarget'))tf$('hMonthTarget').textContent=monthly===null||monthly===undefined||monthly===''?'—':money(monthly);
+  if(tf$('hMonthAchieved'))tf$('hMonthAchieved').textContent=money(achieved);
+  if(tf$('hMonthAchievedPct'))tf$('hMonthAchievedPct').textContent=pct===null?'—':`نسبة التحقيق ${pct.toFixed(1)}%`;
+}
+
 function renderTargetState(){
-  ensureTargetUi();setDailyMetric();
+  ensureTargetUi();setDailyMetric();setHomeSalesMetrics();
   const state=tf$('monthlyTargetState'),box=tf$('monthlyTargetImport');if(!state||!box)return;
   const m=activeMonth();
   if(targetLoading){state.innerHTML='<div class="notice">جاري تحميل مستهدفات الشهر...</div>';box.classList.add('hidden');return}
@@ -91,6 +119,7 @@ function renderTargetState(){
     box.classList.remove('hidden');
   }
   applySalesPlanLock();
+  setHomeSalesMetrics();
 }
 
 async function loadTargetPlan(force=false){
@@ -154,6 +183,8 @@ function applySalesPlanLock(){
   if(!targetPlan?.imported||targetPlan.month!==activeMonth())return;const d=activeWorkDate(),today=targetPlan.rows.find(r=>r.target_date===d),m=tf$('salesMonthlyTarget'),dy=tf$('salesDailyTarget');if(m){m.value=targetPlan.total_basic;m.disabled=true}if(dy){dy.value=today?.basic_target??'';dy.disabled=true}const msg=tf$('salesMsg');if(msg&&document.getElementById('sales')?.classList.contains('active'))msg.innerHTML='<div class="notice ok">مستهدف الشهر واليوم مأخوذان تلقائيًا من خطة المستهدفات المعتمدة.</div>'
 }
 
+const oldRenderHome=window.renderHome;
+if(typeof oldRenderHome==='function')window.renderHome=function(){oldRenderHome.apply(this,arguments);ensureHomeSalesUi();setHomeSalesMetrics();loadTargetPlan().then(setHomeSalesMetrics)};
 const oldRenderOpening=window.renderOpening;
 if(typeof oldRenderOpening==='function')window.renderOpening=function(){oldRenderOpening.apply(this,arguments);ensureTargetUi();renderTargetState();loadTargetPlan()};
 const oldRenderOpeningQuick=window.renderOpeningQuick;
@@ -164,5 +195,7 @@ const oldOpenSales=window.openSales;
 if(typeof oldOpenSales==='function')window.openSales=function(){oldOpenSales.apply(this,arguments);loadTargetPlan().then(applySalesPlanLock)};
 
 ensureTargetUi();
+ensureHomeSalesUi();
+setHomeSalesMetrics();
 let tries=0;const timer=setInterval(()=>{tries++;if(getApp()?.date||getApp()?.calendarDate){clearInterval(timer);loadTargetPlan()}else if(tries>60)clearInterval(timer)},250);
 })();
