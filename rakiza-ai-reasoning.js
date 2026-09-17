@@ -17,6 +17,16 @@ if(typeof module!=='undefined'&&module.exports){
   return;
 }
 
+function ensureRakizaFooter(){
+  if(document.getElementById('rakizaCopyright'))return;
+  const footer=document.createElement('footer');
+  footer.id='rakizaCopyright';
+  footer.setAttribute('dir','rtl');
+  footer.textContent='© 2026 ركيزة — عمل وإنتاج محمد الضمري — جميع الحقوق محفوظة';
+  footer.style.cssText='max-width:1200px;margin:18px auto 8px;padding:14px 18px;text-align:center;color:#667085;font-size:13px;line-height:1.8;';
+  document.body.appendChild(footer);
+}
+
 function loadScript(src,onload){
   const s=document.createElement('script');
   s.src=src;
@@ -25,6 +35,9 @@ function loadScript(src,onload){
   s.onerror=()=>console.error('Rakiza AI failed to load:',src);
   document.body.appendChild(s);
 }
+
+ensureRakizaFooter();
+document.addEventListener('DOMContentLoaded',ensureRakizaFooter);
 
 loadScript('rakiza-ai-reasoning-core.js',()=>{
   loadScript('rakiza-ai-store-intelligence.js',()=>{
