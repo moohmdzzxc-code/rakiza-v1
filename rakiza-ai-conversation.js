@@ -153,7 +153,7 @@ function rosterModifyIntent(text){const n=norm(text);return rosterIntent(text)&&
 function correctionIntent(text){const n=norm(text);return/^(لا |قصدي|اقصد|أقصد|عدل|عدّل|غير|غيّر|خلي|خله|خلها|خليها|خل |وخل|بس |الا |إلا )/.test(n)||/اجازته|إجازته|دوامه|شفت/.test(n)}
 function showDraftIntent(text){const n=norm(text);return/اعرض.*(?:مسوده|مسودة|خطه|خطة)|ورني.*(?:مسوده|مسودة|خطه|خطة)|وش فهمت|ايش فهمت|المسوده|المسودة/.test(n)}
 function cancelDraftIntent(text){const n=norm(text);return/الغ.*(?:المسوده|المسودة|الخطه|الخطة)|احذف.*(?:المسوده|المسودة)/.test(n)}
-function approveDraftIntent(text){const n=norm(text);return/^(اعتمد|اعتمدها|اعتمد الخطة|اعتمد الخطه|اعتمد المسودة|اعتمد المسوده)$/.test(n)}
+function approveDraftIntent(text){const n=norm(text);return/^(اعتمد|اعتمدها|اعتمده|اعتمد الخطة|اعتمد الخطه|اعتمد المسودة|اعتمد المسوده)(?:\s+(?:ل|لل|في)?\s*(?:هذا|هال)?\s*الاسبوع(?:\s+(?:الحالي|القادم|الجاي|المقبل|الماضي|السابق))?)?$/.test(n)}
 function saveDraftIntent(text){const n=norm(text);return/احفظ.*(?:خطه|خطة|مسوده|مسودة)|ثبت.*(?:خطه|خطة)|سجل.*(?:خطه|خطة)/.test(n)}
 function draftPersonQuery(text,people){const n=norm(text);return!!STATE.pending.draft&&people.some(x=>x.resolved)&&(/وش|ايش|كيف|دوام|خطه|خطة|\?$/.test(n)||/^و/.test(n))&&!correctionIntent(text)}
 function draftOpinionIntent(text){const n=norm(text);return!!STATE.pending.draft&&/وش رايك|وش رأيك|كيف تشوف|هل الخطة كويسه|هل الخطه كويسه/.test(n)}

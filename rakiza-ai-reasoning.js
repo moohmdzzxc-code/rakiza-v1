@@ -8,8 +8,9 @@
  * operational roster bridge, approved conversation and universal orchestration
  * layers. Natural roster
  * compatibility remains available, Intent Intelligence provides the unified
- * semantic intent layer, and Dialogue resolves capability gaps interactively
- * while preserving context until the user's goal is completed.
+ * semantic intent layer, and Dialogue resolves capability gaps interactively.
+ * The capability registry and central orchestrator load last so every user
+ * action has one validated execution path with approval and receipts.
  */
 
 if(typeof module!=='undefined'&&module.exports){
@@ -35,7 +36,11 @@ loadScript('rakiza-ai-reasoning-core.js',()=>{
             loadScript('rakiza-ai-conversation-compat.js',()=>{
               loadScript('rakiza-ai-intent.js',()=>{
                 loadScript('rakiza-ai-dialogue.js',()=>{
-                  loadScript('rakiza-ai-voice.js');
+                  loadScript('rakiza-ai-voice.js',()=>{
+                    loadScript('rakiza-ai-capabilities.js',()=>{
+                      loadScript('rakiza-ai-orchestrator.js');
+                    });
+                  });
                 });
               });
             });

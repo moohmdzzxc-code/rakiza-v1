@@ -34,7 +34,7 @@ function currentDraft(){return C.state?.pending?.draft?.kind==='roster'?C.state.
 function isRosterText(n){return /تواجد|روستر|جدول دوام|خطه دوام|خطة دوام/.test(n)}
 function isPeriodOnly(n){return /^(هذا|هاذا|هال|ال)?\s*(ال)?اسبوع|^(ال)?اسبوع (الحالي|الجاي|القادم|الماضي|السابق)|^هذا الاسبوع الحالي$/.test(n)}
 function wantsRosterDraft(n){return /مسود|حوّل|حول|تحويل|جهز|سوي|انش|ابني/.test(n)&&(isRosterText(n)||/هذه|هذي|ها|نفسها|الخطة|الخطه/.test(n))}
-function wantsOperationalDraft(n){return /مسود[هة] تشغيلي|مسود[هة] عمليه|حول.*(?:ل|الى) (?:ال)?تشغيل|نقل.*(?:جدول|شاشه) (?:خطه|خطة) التواجد/.test(n)}
+function wantsOperationalDraft(n){return /مسود[هة].*(?:تشغيلي|عمليه|قابل.*حفظ)|قابل[هة]? للحفظ|حول.*(?:ل|الى) (?:ال)?تشغيل|نقل.*(?:جدول|شاشه) (?:خطه|خطة) التواجد/.test(n)}
 function historyDirection(n){if(/اقدم|الأقدم|قديمه|قديمة|اول خطه|اول خطة/.test(n))return'oldest';if(/اخر خطه|آخر خطة|احدث|الأحدث|اخر تواجد|آخر تواجد|تم تسجيلها|مسجله|مسجلة/.test(n))return'latest';if(STATE.lastCapability==='roster_history'&&/^(اقدم|الأقدم|احدث|الأحدث|اخر|آخر)(?: خطه| خطة)?$/.test(n))return/اقدم|الأقدم/.test(n)?'oldest':'latest';return null}
 function rosterHistoryQuestion(n){return historyDirection(n)&&((isRosterText(n)||/خطه|خطة/.test(n))||STATE.lastCapability==='roster_history')}
 function capabilityQuestion(n){return /ماذا تقدر|وش تقدر|ايش تقدر|وش تسوي|ايش تسوي|قدراتك|وش تقدر تسوي/.test(n)}
