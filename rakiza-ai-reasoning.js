@@ -38,6 +38,7 @@ function loadScript(src,onload){
 
 ensureRakizaFooter();
 document.addEventListener('DOMContentLoaded',ensureRakizaFooter);
+loadScript('rakiza-home-dashboard.js?v=20260917-1');
 
 loadScript('rakiza-ai-reasoning-core.js',()=>{
   loadScript('rakiza-ai-store-intelligence.js',()=>{
