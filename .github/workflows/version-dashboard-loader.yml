@@ -1,0 +1,40 @@
+name: Version Rakiza dashboard loader
+
+on:
+  push:
+    paths:
+      - '.github/workflows/version-dashboard-loader.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Version reasoning loader
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old = '<script src="rakiza-ai-reasoning.js"></script>'
+          new = '<script src="rakiza-ai-reasoning.js?v=20260917-dashboard1"></script>'
+          if new in s:
+              print('Already versioned')
+          elif old in s:
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+              print('Versioned dashboard loader')
+          else:
+              raise SystemExit('Reasoning script tag not found')
+      - name: Verify
+        run: grep -q 'rakiza-ai-reasoning.js?v=20260917-dashboard1' index.html
+      - name: Commit
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Version Rakiza executive dashboard loader'
+          git push
