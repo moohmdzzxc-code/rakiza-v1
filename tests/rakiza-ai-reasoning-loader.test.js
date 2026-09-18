@@ -20,7 +20,7 @@ sandbox.document={
     if(s.tagName!=='SCRIPT')return;
     loaded.push(s.src);
     if(!s.src.startsWith('rakiza-home-dashboard.js')){
-      const code=fs.readFileSync(s.src,'utf8');
+      const path=s.src.split('?')[0],code=fs.readFileSync(path,'utf8');
       vm.runInContext(code,sandbox,{filename:s.src});
     }
     if(typeof s.onload==='function')s.onload();
@@ -41,7 +41,7 @@ ok(loaded[8]==='rakiza-ai-intent.js','Intent Intelligence loads before dialogue 
 ok(loaded[9]==='rakiza-ai-dialogue.js','dialogue capability resolver loads before voice',loaded);
 ok(loaded[10]==='rakiza-ai-voice.js','conversational voice loads before execution layers',loaded);
 ok(loaded[11]==='rakiza-ai-capabilities.js','unified capability registry loads after voice',loaded);
-ok(loaded[12]==='rakiza-ai-orchestrator.js','central orchestrator loads last',loaded);
+ok(loaded[12]==='rakiza-ai-orchestrator.js?v=20260918-2','versioned central orchestrator loads last',loaded);
 ok(!!sandbox.window.RakizaAI.reasoning,'shared reasoning available');
 ok(!!sandbox.window.RakizaAI.store,'store intelligence available');
 ok(!!sandbox.window.RakizaAI.store.reasoningBridge,'store reasoning bridge available');
