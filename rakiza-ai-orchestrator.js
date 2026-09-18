@@ -35,7 +35,7 @@ function periodFromText(text){
 }
 function approved(text){return CAPS.approvalText(text)||/(?:^|\s)اعتمد(?:ها|ه)?(?:\s|$)/.test(norm(text))}
 function operationalDraftRequest(n){return/(?:مسوده|مسودة).*(?:قابل|تشغيل|حفظ)|(?:قابل|تشغيل).*(?:مسوده|مسودة)|حول(?:ها)? (?:ل|الى) (?:مسوده|التشغيل)|انقل(?:ها)? (?:للجدول|لجدول|للخطه)/.test(n)}
-function rosterRequest(n){return/خطة التواجد|خطه التواجد|جدول الدوام|روستر/.test(n)}
+function rosterRequest(n){return/خطة (?:ال)?تواجد|خطه (?:ال)?تواجد|جدول الدوام|روستر/.test(n)}
 function createRequest(n){return/(?:قم ب|سوي|سو|اعمل|انشئ|جهز|ابني|اعد|اقترح)/.test(n)}
 function isAck(n){return/^(تمام|حسنا|زين|اوكي|ok)$/.test(n)}
 function isCapabilityQuestion(n){return/وش تقدر|ايش تقدر|ماذا تقدر|قدراتك|وش تسوي|ايش تسوي|كل اللي تقدر/.test(n)}
@@ -57,8 +57,9 @@ async function stageRoster(draft,text){
 async function createRoster(text){
   let draft=currentDraft(),period=periodFromText(text)||nextWeek();if(draft)return AI.conversation?.renderRosterDraft?.(draft)||'<b>مسودة خطة التواجد موجودة.</b>';
   try{const found=await AI.dialogue?.findRoster?.('latest');if(found?.rows?.length&&AI.dialogue?.rosterRowsToDraft){draft=AI.dialogue.rosterRowsToDraft(found.rows,period,found.period);setDraft(draft);STATE.goal={domain:'attendance',capability:'roster.stage',status:'draft'};return'<div class="notice ok"><b>جهزت مسودة خطة تواجد للفترة '+esc(period.start)+' إلى '+esc(period.end)+' اعتمادًا على آخر خطة محفوظة كنقطة بداية.</b><div style="margin-top:5px">لم أفترض توزيعًا جديدًا من عندي؛ يمكنك تعديل أي موظف أو يوم ثم تحويلها لمسودة تشغيلية.</div></div>'+(AI.conversation?.renderRosterDraft?.(draft)||'')}}catch(e){console.warn('Rakiza roster baseline unavailable',e)}
-  const C=AI.conversation;if(C?.interpret&&C?.respond){const f=C.interpret(text,{raw:text,entities:{domain:'attendance'}}),html=await C.respond(f),d=currentDraft();if(d&&!d.period){d.period=period;setDraft(d)}STATE.goal={domain:'attendance',capability:'roster.stage',status:'draft'};return html}
-  return'<b>أحتاج تحديد دوام الموظفين أو وجود خطة سابقة حتى أبني المسودة دون اختراع توزيع غير معتمد.</b>';
+  const C=AI.conversation;if(C?.interpret&&C?.respond){const f=C.interpret(text,{raw:text,entities:{domain:'attendance'}}),html=await C.respond(f),d=currentDraft();if(d){if(!d.period){d.period=period;setDraft(d)}STATE.goal={domain:'attendance',capability:'roster.stage',status:'draft'};return html}}
+  STATE.goal={domain:'attendance',capability:'roster.stage',status:'needs_input'};
+  return'<b>لا توجد خطة تواجد محفوظة أبني عليها.</b><div class="mut" style="margin-top:6px">أرسل توزيع دوام الموظفين وإجازاتهم، وسأحوّله مباشرة إلى مسودة للأسبوع المطلوب دون افتراض بيانات من عندي.</div>';
 }
 
 function employeeFromText(text){const n=norm(text),hits=(app().employees||[]).filter(e=>{const full=norm(empName(e)),parts=full.split(' ').filter(x=>x.length>=3);return(full&&n.includes(full))||parts.some(p=>new RegExp('(?:^| )'+p+'(?: |$)').test(n))});return hits.length===1?hits[0]:null}
@@ -164,6 +165,6 @@ wrapped.__rakizaOrchestratorWrapped=true;wrapped.__base=baseAsk;window.askRakiza
 AI.orchestrator={version:VERSION,state:STATE,handle:handle,operationalPlan:operationalPlan,periodFromText:periodFromText,stageRoster:stageRoster,createRoster:createRoster,modelPlan:modelPlan,reset(){STATE.goal=null;STATE.turns=[];STATE.busy=false;CAPS.cancel()}};
 const baseOpen=window.openAssistant;
 function refreshAssistantCopy(){const sec=document.getElementById('assistant');if(!sec)return;const sub=sec.querySelector?.('.top .sub'),notice=sec.querySelector?.('.notice'),suggest=document.getElementById('assistantSuggestions'),input=document.getElementById('assistantInput');if(sub)sub.textContent='محرك ركيزة الهجين — فهم، تنفيذ، واعتماد';if(notice)notice.innerHTML='<b>ركيزة AI مرتبط بقدرات النظام الفعلية.</b><div style="margin-top:5px">يفهم هدفك، يحافظ على السياق، ويجهز العمليات للتنفيذ. لا يتم أي حفظ تشغيلي دون اعتمادك.</div>';if(suggest)suggest.innerHTML='<button class="mini" onclick="askAssistantQuick(\'وش أهم أولوياتي اليوم؟\')">أولويات اليوم</button><button class="mini" onclick="askAssistantQuick(\'قم بعمل خطة تواجد\')">خطة تواجد</button><button class="mini" onclick="askAssistantQuick(\'سجل عطل صيانة في المكيف الرئيسي\')">تسجيل صيانة</button><button class="mini" onclick="askAssistantQuick(\'صدر ملف Excel للنواقص\')">تصدير النواقص</button>';if(input)input.placeholder='اكتب ما تريد تنفيذه أو تحليله بطريقتك الطبيعية'}
-if(typeof baseOpen==='function')window.openAssistant=function(){const r=baseOpen.apply(this,arguments);refreshAssistantCopy();return r};
+if(typeof baseOpen==='function')window.openAssistant=function(){const r=baseOpen.apply(this,arguments);refreshAssistantCopy();setTimeout(refreshAssistantCopy,0);return r};
 refreshAssistantCopy();
 })();
