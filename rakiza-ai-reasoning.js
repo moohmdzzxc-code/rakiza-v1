@@ -52,7 +52,7 @@ loadScript('rakiza-ai-reasoning-core.js',()=>{
                 loadScript('rakiza-ai-dialogue.js',()=>{
                   loadScript('rakiza-ai-voice.js',()=>{
                     loadScript('rakiza-ai-capabilities.js',()=>{
-                      loadScript('rakiza-ai-orchestrator.js');
+                      loadScript('rakiza-ai-orchestrator.js?v=20260918-2');
                     });
                   });
                 });
