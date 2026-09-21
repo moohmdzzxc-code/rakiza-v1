@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='20260917-1';
+const VERSION='20260918-1';
 
 function rkzSvg(name){
   const common='viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
@@ -34,6 +34,14 @@ function pct(v){
   return Number.isFinite(x)?x.toFixed(1)+'%':'—';
 }
 function safeApp(){ try{return app||null}catch{return null} }
+function cycleState(a){
+  if(window.RakizaDayCycle?.derive)return window.RakizaDayCycle.derive(a);
+  const day=a?.day,openingDone=!!day?.opening_approved_at,planDone=!!(day&&(day.plan_id||day.day_type)),closeDone=day?.status==='مغلق';
+  const key=!day?'not_started':closeDone?'closed':!openingDone?'opening':!planDone?'planning':'operating';
+  const labels={not_started:'لم يبدأ',opening:'بدء اليوم',planning:'إعداد الخطة',operating:'قيد التشغيل',closed:'مغلق'};
+  const next={not_started:'start',opening:'opening',planning:'dayplan',operating:'close',closed:'reports'};
+  return {key,label:labels[key],description:'أكمل خطوات التشغيل اليومية بالترتيب.',buttonLabel:key==='not_started'?'بدء يوم التشغيل':key==='closed'?'عرض سجل الأيام':'متابعة دورة التشغيل',nextTarget:next[key],progress:closeDone?100:planDone?67:openingDone?33:0,openingDone,planDone,closeDone,steps:[{key:'opening',number:1,status:openingDone?'done':key==='opening'?'current':'locked',label:'بدء اليوم'},{key:'dayplan',number:2,status:planDone?'done':key==='planning'?'current':'locked',label:'خطة اليوم'},{key:'close',number:3,status:closeDone?'done':key==='operating'?'current':'locked',label:'إغلاق اليوم'}]};
+}
 function workDate(a){return a?.day?.work_date||a?.date||new Date().toISOString().slice(0,10)}
 function gregorianDate(d){
   try{return new Intl.DateTimeFormat('ar-SA-u-ca-gregory',{weekday:'long',day:'numeric',month:'long'}).format(new Date(d+'T12:00:00'))}
@@ -95,7 +103,8 @@ function ensureStyle(){
     .rkz-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}.rkz-kpi{background:#fff;border:1px solid #e8edf4;border-radius:16px;padding:16px;min-height:128px;box-shadow:0 4px 18px rgba(23,54,93,.04)}.rkz-kpi-head{display:flex;align-items:center;justify-content:space-between;color:#39516f;font-weight:750}.rkz-kpi-icon{width:36px;height:36px;border-radius:11px;background:#f1f6fb;display:grid;place-items:center;color:#17365d}.rkz-kpi-icon svg{width:21px;height:21px}.rkz-kpi strong{display:block;font-size:28px;color:#102849;margin-top:12px;line-height:1}.rkz-kpi small{color:#7d8998;font-size:11px}.rkz-kpi .rkz-pct{display:block;margin-top:11px;font-size:13px;font-weight:850;color:#a46a00}.rkz-bar{height:8px;background:#e8edf3;border-radius:99px;overflow:hidden;margin-top:7px}.rkz-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#d8aa49,#c99632)}.rkz-kpi.sales{background:linear-gradient(180deg,#fff,#f3fbf6)}.rkz-kpi.sales .rkz-pct{color:#24814d}.rkz-kpi.sales .rkz-bar i{background:linear-gradient(90deg,#78d399,#31a665)}
     .rkz-main-grid{display:grid;grid-template-columns:350px minmax(0,1fr);grid-template-rows:auto auto;gap:14px;direction:ltr;align-items:start}.rkz-main-grid>*{direction:rtl}.rkz-panel{background:#fff;border:1px solid #e8edf4;border-radius:17px;padding:16px;box-shadow:0 4px 18px rgba(23,54,93,.04)}
     .rkz-alert-panel{grid-column:1;grid-row:1/span 2;background:linear-gradient(180deg,#fff8f7,#fff);min-height:100%}.rkz-cycle-panel{grid-column:2;grid-row:1}.rkz-tools-panel{grid-column:2;grid-row:2}.rkz-panel-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.rkz-panel-title h2{font-size:21px;margin:0;color:#102849}.rkz-panel-title p{margin:4px 0 0;color:#8a96a6;font-size:12px}.rkz-title-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#f3f6fb;color:#17365d}.rkz-title-icon svg{width:22px;height:22px}.rkz-title-icon.red{background:#fff0ed;color:#d84b3d}
-    .rkz-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;align-items:start;margin:18px 10px}.rkz-step{position:relative;text-align:center;cursor:pointer}.rkz-step:not(:last-child):after{content:'';position:absolute;top:20px;left:-50%;width:100%;height:3px;background:#dfe6ee;z-index:0}.rkz-step.done:not(:last-child):after{background:#b9c9da}.rkz-step-dot{position:relative;z-index:1;width:42px;height:42px;border-radius:50%;margin:0 auto 8px;background:#cbd4df;color:#fff;display:grid;place-items:center;font-weight:900}.rkz-step.done .rkz-step-dot{background:#17365d}.rkz-step-dot svg{width:22px;height:22px}.rkz-step b{display:block;color:#1d3657}.rkz-step span{font-size:12px;color:#909aaa}.rkz-step.done span{color:#2b8b54}.rkz-cycle-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:10px 0}.rkz-stat{border:1px solid #e8edf4;border-radius:13px;padding:10px 12px;background:#f9fbfd;display:flex;align-items:center;justify-content:space-between;gap:10px}.rkz-stat span{font-size:12px;color:#8190a2}.rkz-stat strong{font-size:18px;color:#17365d}.rkz-stat-icon{width:35px;height:35px;border-radius:10px;background:#eaf5ee;color:#278452;display:grid;place-items:center}.rkz-stat-icon.gold{background:#fff6e5;color:#bb8120}.rkz-stat-icon.blue{background:#edf4fb;color:#24588b}.rkz-stat-icon svg{width:19px;height:19px}
+    .rkz-cycle-head{display:flex;align-items:center;gap:9px}.rkz-cycle-state{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;background:#eef4fa;color:#17365d;font-size:12px;font-weight:850}.rkz-cycle-summary{border:1px solid #e8edf4;background:#f8fafc;border-radius:13px;padding:11px 13px;margin:4px 0 14px}.rkz-cycle-summary-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.rkz-cycle-summary b{color:#17365d}.rkz-cycle-summary span{font-size:12px;color:#77869a}.rkz-cycle-progress{height:7px;background:#e4eaf1;border-radius:99px;overflow:hidden;margin-top:9px}.rkz-cycle-progress i{display:block;height:100%;background:linear-gradient(90deg,#17365d,#d2a54c);border-radius:99px;transition:width .25s ease}
+    .rkz-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;align-items:start;margin:18px 10px}.rkz-step{position:relative;text-align:center;cursor:pointer;border-radius:12px;padding:6px 3px;transition:.16s}.rkz-step:hover{background:#f6f8fb}.rkz-step:not(:last-child):after{content:'';position:absolute;top:26px;left:-50%;width:100%;height:3px;background:#dfe6ee;z-index:0}.rkz-step.done:not(:last-child):after{background:#9fb4ca}.rkz-step-dot{position:relative;z-index:1;width:42px;height:42px;border-radius:50%;margin:0 auto 8px;background:#cbd4df;color:#fff;display:grid;place-items:center;font-weight:900}.rkz-step.done .rkz-step-dot{background:#17365d}.rkz-step.current .rkz-step-dot{background:#d2a54c;box-shadow:0 0 0 5px #fbf3e3}.rkz-step.locked{opacity:.58}.rkz-step-dot svg{width:22px;height:22px}.rkz-step b{display:block;color:#1d3657}.rkz-step span{font-size:12px;color:#909aaa}.rkz-step.done span{color:#2b8b54}.rkz-step.current span{color:#a16c10;font-weight:800}.rkz-cycle-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:10px 0}.rkz-stat{border:1px solid #e8edf4;border-radius:13px;padding:10px 12px;background:#f9fbfd;display:flex;align-items:center;justify-content:space-between;gap:10px}.rkz-stat span{font-size:12px;color:#8190a2}.rkz-stat strong{font-size:18px;color:#17365d}.rkz-stat-icon{width:35px;height:35px;border-radius:10px;background:#eaf5ee;color:#278452;display:grid;place-items:center}.rkz-stat-icon.gold{background:#fff6e5;color:#bb8120}.rkz-stat-icon.blue{background:#edf4fb;color:#24588b}.rkz-stat-icon svg{width:19px;height:19px}
     .rkz-primary{width:100%;border:0;border-radius:12px;padding:13px 16px;background:linear-gradient(90deg,#c9993e,#d7ad55);color:#fff;font-weight:900;font-size:15px;cursor:pointer}.rkz-primary:hover{filter:brightness(.98)}
     .rkz-alert-list{display:flex;flex-direction:column;gap:9px}.rkz-alert{border:1px solid #edf0f4;background:#fff;border-radius:13px;padding:12px;display:grid;grid-template-columns:42px 1fr 18px;gap:10px;align-items:center;cursor:pointer}.rkz-alert-icon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center}.rkz-alert-icon svg{width:20px;height:20px}.rkz-alert-icon.red{background:#ffefed;color:#d84c3e}.rkz-alert-icon.amber{background:#fff1d8;color:#c78922}.rkz-alert-icon.blue{background:#eaf3fb;color:#2e679e}.rkz-alert b{display:block;color:#203958;font-size:14px}.rkz-alert span{display:block;color:#8b96a5;font-size:11px;margin-top:3px}.rkz-alert>.rkz-arr{color:#9ca8b6}.rkz-alert>.rkz-arr svg{width:16px;height:16px}.rkz-all-alerts{margin-top:12px;border:0;background:#fff2f0;color:#6c7a8d;border-radius:11px;width:100%;padding:11px;font-weight:750;cursor:pointer}.rkz-okbox{border:1px solid #dcefe3;background:#f5fbf7;color:#24724a;border-radius:13px;padding:15px;text-align:center;font-weight:750}
     .rkz-tools-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.rkz-tool{border:1px solid #e7ecf2;background:#fff;border-radius:11px;padding:10px 11px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;color:#244263;font-weight:750;min-height:46px}.rkz-tool:hover{background:#f7f9fc}.rkz-tool-left{display:flex;align-items:center;gap:8px}.rkz-tool-ico{width:30px;height:30px;border-radius:9px;background:#eef5fb;color:#1f5b8f;display:grid;place-items:center}.rkz-tool-ico.gold{background:#fff4df;color:#b77b1b}.rkz-tool-ico svg{width:17px;height:17px}.rkz-tool>svg{width:15px;height:15px;color:#94a1af}.rkz-tool.disabled{opacity:.48;cursor:not-allowed}
@@ -129,6 +138,8 @@ function ensureSidebar(){
 
 window.rkzNav=function(target){
   const call=(name,...args)=>typeof window[name]==='function'?window[name](...args):null;
+  if(['opening','dayplan','close'].includes(target)&&window.RakizaDayCycle?.guard)target=window.RakizaDayCycle.guard(target,safeApp());
+  if(target==='start')return call('startDay');
   if(target==='home')return call('home');
   if(target==='cycle')return typeof window.openDailyCycle==='function'?window.openDailyCycle():call('openOpening');
   if(target==='sales')return call('openSales');
@@ -146,11 +157,8 @@ window.rkzNav=function(target){
 
 window.rkzContinueCycle=function(){
   const a=safeApp();
-  if(!a?.day)return typeof window.startDay==='function'?window.startDay():null;
-  if(!a.day.opening_approved_at)return rkzNav('opening');
-  if(!a.day.plan_id)return rkzNav('dayplan');
-  if(a.day.status!=='مغلق')return rkzNav('close');
-  return rkzNav('reports');
+  const target=window.RakizaDayCycle?.next?window.RakizaDayCycle.next(a):cycleState(a).nextTarget;
+  return rkzNav(target);
 };
 
 window.rkzAttentionGo=function(go){return rkzNav(go)};
@@ -171,8 +179,9 @@ function renderDashboard(){
   const d=workDate(a),monthTarget=Number(a.day?.monthly_target_snapshot??a.monthlyTarget??0),achieved=monthAchieved(a,d),monthPct=monthTarget?achieved/monthTarget*100:0;
   const dailyTarget=Number(a.day?.daily_target||0),dailySalesKnown=!!(a.day&&a.day.daily_sales!==null&&a.day.daily_sales!==undefined&&a.day.daily_sales!==''),dailySales=dailySalesKnown?Number(a.day.daily_sales||0):0,dailyPct=dailyTarget&&dailySalesKnown?dailySales/dailyTarget*100:null;
   const readiness=readinessScore(a),team=presentCounts(a),alerts=attentionItems(a,d,dailySalesKnown,dailySales,dailyTarget,readiness);
-  const openingDone=!!a.day?.opening_approved_at,planDone=!!a.day?.plan_id,closeDone=a.day?.status==='مغلق';
-  const status=a.day?.status||'لم يبدأ';
+  const cycle=cycleState(a),openingDone=cycle.openingDone,planDone=cycle.planDone,closeDone=cycle.closeDone;
+  const stepStatus={done:'مكتمل',current:'الخطوة الحالية',locked:'بانتظار ما قبلها'};
+  const stepHtml=cycle.steps.map(step=>`<div class="rkz-step ${step.status}" onclick="rkzNav('${step.key}')"><div class="rkz-step-dot">${step.status==='done'?rkzSvg('check'):step.number}</div><b>${step.label}</b><span>${stepStatus[step.status]}</span></div>`).join('');
   const warning=a.hasCarryoverOpenDay?`<div class="notice err" style="margin:0 0 12px"><b>يوجد يوم تشغيل سابق مفتوح.</b> يجب إغلاقه قبل الانتقال لليوم التالي.</div>`:'';
   const alertHtml=alerts.length?alerts.map(x=>`<div class="rkz-alert" onclick="rkzAttentionGo('${x.go}')"><div class="rkz-alert-icon ${x.tone}">${rkzSvg(x.icon)}</div><div><b>${x.title}</b><span>${x.sub}</span></div><div class="rkz-arr">${rkzSvg('arrow')}</div></div>`).join(''):'<div class="rkz-okbox">لا توجد تنبيهات تشغيلية مفتوحة الآن.</div>';
   home.innerHTML=`<div class="rkz-home-wrap">
@@ -190,18 +199,15 @@ function renderDashboard(){
     </div>
     <div class="rkz-main-grid">
       <div class="rkz-panel rkz-alert-panel"><div class="rkz-panel-title"><div><h2>ما يحتاج انتباهك</h2><p>الأولويات المفتوحة الآن</p></div><div class="rkz-title-icon red">${rkzSvg('alert')}</div></div><div class="rkz-alert-list">${alertHtml}</div><button class="rkz-all-alerts" onclick="rkzNav('actions')">عرض الإجراءات والمتابعات</button></div>
-      <div class="rkz-panel rkz-cycle-panel"><div class="rkz-panel-title"><div><h2>دورة التشغيل اليومي</h2><p>أكمل خطوات التشغيل اليومية بالترتيب</p></div><div class="rkz-title-icon">${rkzSvg('calendar')}</div></div>
-        <div class="rkz-steps">
-          <div class="rkz-step ${openingDone?'done':''}" onclick="rkzNav('opening')"><div class="rkz-step-dot">${openingDone?rkzSvg('check'):'1'}</div><b>بدء اليوم</b><span>${openingDone?'مكتمل':a.day?'قيد التنفيذ':'لم يبدأ'}</span></div>
-          <div class="rkz-step ${planDone?'done':''}" onclick="rkzNav('dayplan')"><div class="rkz-step-dot">${planDone?rkzSvg('check'):'2'}</div><b>خطة اليوم</b><span>${planDone?'مكتمل':'بانتظار التنفيذ'}</span></div>
-          <div class="rkz-step ${closeDone?'done':''}" onclick="rkzNav('close')"><div class="rkz-step-dot">${closeDone?rkzSvg('check'):'3'}</div><b>إغلاق اليوم</b><span>${closeDone?'مكتمل':'معلق'}</span></div>
-        </div>
+      <div class="rkz-panel rkz-cycle-panel"><div class="rkz-panel-title"><div><div class="rkz-cycle-head"><h2>دورة التشغيل اليومي</h2><span class="rkz-cycle-state">${cycle.label}</span></div><p>أكمل خطوات التشغيل اليومية بالترتيب</p></div><div class="rkz-title-icon">${rkzSvg('calendar')}</div></div>
+        <div class="rkz-cycle-summary"><div class="rkz-cycle-summary-row"><div><b>${cycle.label}</b><span style="display:block;margin-top:3px">${cycle.description}</span></div><span>${cycle.progress}%</span></div><div class="rkz-cycle-progress"><i style="width:${cycle.progress}%"></i></div></div>
+        <div class="rkz-steps">${stepHtml}</div>
         <div class="rkz-cycle-stats">
-          <div class="rkz-stat"><div><span>حالة اليوم</span><strong>${status}</strong></div><div class="rkz-stat-icon">${rkzSvg('play')}</div></div>
+          <div class="rkz-stat"><div><span>حالة اليوم</span><strong>${cycle.label}</strong></div><div class="rkz-stat-icon">${rkzSvg('play')}</div></div>
           <div class="rkz-stat"><div><span>الجاهزية</span><strong>${readiness==null?'—':Math.round(readiness)+' / 100'}</strong></div><div class="rkz-stat-icon gold">${rkzSvg('spark')}</div></div>
           <div class="rkz-stat"><div><span>الفريق</span><strong>${team.total?team.present+' / '+team.total+' حاضر':'—'}</strong></div><div class="rkz-stat-icon blue">${rkzSvg('users')}</div></div>
         </div>
-        <button class="rkz-primary" onclick="rkzContinueCycle()">متابعة دورة التشغيل &nbsp; ‹</button>
+        <button class="rkz-primary" onclick="rkzContinueCycle()">${cycle.buttonLabel} &nbsp; ‹</button>
       </div>
       <div class="rkz-panel rkz-tools-panel"><div class="rkz-panel-title"><div><h2>الأدوات</h2><p>كل ما تحتاجه لإدارة المعرض في مكان واحد</p></div><div class="rkz-title-icon">${rkzSvg('box')}</div></div>
         <div class="rkz-tools-grid">

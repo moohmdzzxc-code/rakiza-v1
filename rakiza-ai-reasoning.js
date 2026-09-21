@@ -37,9 +37,9 @@ function loadScript(src,onload){
   document.body.appendChild(s);
 }
 
-ensureRakizaFooter();
-document.addEventListener('DOMContentLoaded',ensureRakizaFooter);
-loadScript('rakiza-home-dashboard.js?v=20260917-1');
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ensureRakizaFooter,{once:true});
+else ensureRakizaFooter();
+loadScript('rakiza-day-cycle.js?v=20260918-1',()=>loadScript('rakiza-home-dashboard.js?v=20260918-1'));
 
 loadScript('rakiza-ai-reasoning-core.js',()=>{
   loadScript('rakiza-ai-store-intelligence.js',()=>{
