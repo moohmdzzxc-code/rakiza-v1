@@ -31,7 +31,7 @@ function derive(source){
     closed:{label:'مغلق',description:'اكتملت دورة التشغيل وحُفظ اليوم في السجل.',buttonLabel:'عرض سجل الأيام',nextTarget:'reports',completed:3}
   };
   const state=states[key];
-  const current=key==='opening'?'opening':key==='planning'?'dayplan':['operating','ready_to_close'].includes(key)?'close':null;
+  const current=['not_started','opening'].includes(key)?'opening':key==='planning'?'dayplan':['operating','ready_to_close'].includes(key)?'close':null;
   const done={opening:openingDone,dayplan:planDone,close:closeDone};
   const steps=STEP_KEYS.map((step,index)=>({
     key:step,
