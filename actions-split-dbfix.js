@@ -113,15 +113,33 @@ function uiActionCounts(){
 function ensureDailyCycleView(){
   if(document.getElementById('dailycycle'))return;
   const sec=document.createElement('section');sec.id='dailycycle';sec.className='view';
-  sec.innerHTML=`<div class="top"><div><div class="brand">دورة التشغيل اليومي</div><div class="sub">بدء اليوم → خطة اليوم → إغلاق اليوم</div></div><button class="btn ghost" onclick="home()">الرئيسية</button></div>
-    <div class="card" style="margin-top:14px"><div class="notice ok"><b>يتم تنفيذ دورة التشغيل اليومي بشكل يومي.</b></div>
-      <div class="tiles" style="margin-top:12px">
-        <div class="tile"><h3>بدء اليوم</h3><div class="mut" style="margin-bottom:8px">الجاهزية واعتماد الافتتاح</div><button class="btn" onclick="openOpening()">فتح</button></div>
-        <div class="tile"><h3>خطة اليوم</h3><div class="mut" style="margin-bottom:8px">الخطة والتواجد اليومي</div><button class="btn" onclick="openDayPlan()">فتح</button></div>
-        <div class="tile"><h3>إغلاق اليوم</h3><div class="mut" style="margin-bottom:8px">نتيجة اليوم واعتماد الإغلاق</div><button class="btn" onclick="openClose()">فتح</button></div>
-      </div>
-    </div>`;
+  sec.innerHTML=`<div class="top"><div><div class="brand">دورة التشغيل اليومي</div><div class="sub">مسار واحد يقودك تلقائيًا إلى الخطوة الصحيحة</div></div><button class="btn ghost" onclick="home()">الرئيسية</button></div><div id="dailyCycleMount" style="margin-top:14px"></div>`;
   document.querySelector('main.app')?.appendChild(sec);
+}
+
+function uiCycleState(){
+  if(window.RakizaDayCycle?.derive)return window.RakizaDayCycle.derive(app);
+  const day=app?.day,openingDone=!!day?.opening_approved_at,planDone=!!(day&&(day.plan_id||day.day_type)),closeDone=day?.status==='مغلق';
+  const key=!day?'not_started':closeDone?'closed':!openingDone?'opening':!planDone?'planning':'operating';
+  const label={not_started:'لم يبدأ',opening:'بدء اليوم',planning:'إعداد الخطة',operating:'قيد التشغيل',closed:'مغلق'}[key];
+  return {key,label,description:'أكمل خطوات التشغيل اليومية بالترتيب.',buttonLabel:key==='not_started'?'بدء يوم التشغيل':key==='closed'?'عرض سجل الأيام':'متابعة دورة التشغيل',progress:closeDone?100:planDone?67:openingDone?33:0,steps:[{key:'opening',number:1,label:'بدء اليوم',status:openingDone?'done':key==='opening'?'current':'locked'},{key:'dayplan',number:2,label:'خطة اليوم',status:planDone?'done':key==='planning'?'current':'locked'},{key:'close',number:3,label:'إغلاق اليوم',status:closeDone?'done':key==='operating'?'current':'locked'}]};
+}
+
+function renderDailyCycleView(){
+  ensureDailyCycleView();
+  const mount=document.getElementById('dailyCycleMount');if(!mount)return;
+  const cycle=uiCycleState(),status={done:'مكتمل',current:'الخطوة الحالية',locked:'بانتظار الخطوة السابقة'};
+  const descriptions={opening:'الجاهزية التشغيلية واعتماد بدء اليوم',dayplan:'خطة اليوم وتواجد الفريق',close:'نتيجة اليوم واعتماد الإغلاق'};
+  mount.innerHTML=`<style>
+    .rkz-cycle-page{max-width:980px;margin:0 auto}.rkz-cycle-hero{background:linear-gradient(135deg,#12345a,#28527d);color:#fff;border-radius:20px;padding:22px;box-shadow:0 12px 30px rgba(23,54,93,.16)}
+    .rkz-cycle-hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.rkz-cycle-hero h2{margin:0 0 6px;font-size:24px}.rkz-cycle-hero p{margin:0;color:#dbe6f2}.rkz-cycle-badge{background:#fff1ce;color:#79510b;border-radius:999px;padding:7px 12px;font-weight:850;white-space:nowrap}.rkz-cycle-meter{height:9px;background:rgba(255,255,255,.18);border-radius:99px;overflow:hidden;margin-top:18px}.rkz-cycle-meter i{display:block;height:100%;background:#d9ae57;border-radius:99px}.rkz-cycle-meter-label{display:flex;justify-content:space-between;font-size:12px;color:#dbe6f2;margin-top:7px}
+    .rkz-cycle-page-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}.rkz-cycle-page-step{border:1px solid #e4e9ef;background:#fff;border-radius:16px;padding:17px;min-height:166px;display:flex;flex-direction:column}.rkz-cycle-page-step.current{border-color:#d5aa51;box-shadow:0 0 0 3px #fbf3e2}.rkz-cycle-page-step.done{border-color:#bcd8c7;background:#f7fcf8}.rkz-cycle-page-step.locked{opacity:.66}.rkz-cycle-page-num{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#d9e0e8;color:#fff;font-weight:900;margin-bottom:12px}.rkz-cycle-page-step.done .rkz-cycle-page-num{background:#268354}.rkz-cycle-page-step.current .rkz-cycle-page-num{background:#d0a247}.rkz-cycle-page-step h3{margin:0;color:#17365d}.rkz-cycle-page-step p{color:#78879a;font-size:13px;line-height:1.7;flex:1}.rkz-cycle-step-status{font-size:12px;font-weight:800;color:#7d8a99}.rkz-cycle-page-step.done .rkz-cycle-step-status{color:#268354}.rkz-cycle-page-step.current .rkz-cycle-step-status{color:#9a6812}.rkz-cycle-next{background:#fff;border:1px solid #e5eaf0;border-radius:16px;padding:17px}.rkz-cycle-next p{margin:4px 0 14px;color:#758397}.rkz-cycle-next .btn{width:100%;padding:13px;font-weight:850}
+    @media(max-width:700px){.rkz-cycle-page-steps{grid-template-columns:1fr}.rkz-cycle-hero-top{flex-direction:column}.rkz-cycle-page-step{min-height:0}}
+  </style><div class="rkz-cycle-page">
+    <div class="rkz-cycle-hero"><div class="rkz-cycle-hero-top"><div><h2>${cycle.label}</h2><p>${cycle.description}</p></div><span class="rkz-cycle-badge">${cycle.progress}% مكتمل</span></div><div class="rkz-cycle-meter"><i style="width:${cycle.progress}%"></i></div><div class="rkz-cycle-meter-label"><span>بدء اليوم</span><span>إغلاق اليوم</span></div></div>
+    <div class="rkz-cycle-page-steps">${cycle.steps.map(step=>`<div class="rkz-cycle-page-step ${step.status}" onclick="rkzNav('${step.key}')"><div class="rkz-cycle-page-num">${step.status==='done'?'✓':step.number}</div><h3>${step.label}</h3><p>${descriptions[step.key]}</p><span class="rkz-cycle-step-status">${status[step.status]}</span></div>`).join('')}</div>
+    <div class="rkz-cycle-next"><b>الخطوة التالية</b><p>${cycle.description}</p><button class="btn gold" onclick="rkzContinueCycle()">${cycle.buttonLabel}</button></div>
+  </div>`;
 }
 
 function ensureTargetsView(){
@@ -164,7 +182,7 @@ function rebuildHomeTiles(){
     <div class="tile"><h3>الأداء الشهري</h3><button class="btn" disabled>قيد التطوير</button></div>`;
 }
 
-window.openDailyCycle=function(){ensureDailyCycleView();show('dailycycle')};
+window.openDailyCycle=function(){ensureDailyCycleView();renderDailyCycleView();show('dailycycle')};
 window.openTargets=function(){ensureTargetsView();show('targets')};
 
 const uiBaseRenderHome=window.renderHome;
