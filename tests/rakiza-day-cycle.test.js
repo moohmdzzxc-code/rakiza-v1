@@ -16,7 +16,8 @@ function state(app,key,label,next,progress){
 }
 
 const empty=state({},'not_started','لم يبدأ','start',0);
-ok(empty.steps[0].status==='locked','before start every step is locked',empty.steps);
+ok(empty.steps[0].status==='current','start day is the current step before opening',empty.steps);
+ok(empty.steps.slice(1).every(step=>step.status==='locked'),'later steps stay locked before opening',empty.steps);
 
 const opening=state({day:{status:'مفتوح'}},'opening','بدء اليوم','opening',0);
 ok(opening.steps[0].status==='current','opening is the current step',opening.steps);
