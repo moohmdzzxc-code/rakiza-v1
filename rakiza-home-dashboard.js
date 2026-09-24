@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='20260922-tools-cleanup1';
+const VERSION='20260924-history-recovery1';
 
 function rkzSvg(name){
   const common='viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
@@ -77,6 +77,8 @@ function actionCounts(a){
 function attentionItems(a,d,dailySalesKnown,dailySales,dailyTarget,readiness){
   const out=[],counts=actionCounts(a),attendance=a?.attendance||[],checks=a?.checks||[];
   if(a?.hasCarryoverOpenDay)out.push({tone:'red',icon:'alert',title:'يوجد يوم تشغيل سابق مفتوح',sub:'أغلق اليوم السابق قبل بدء يوم جديد',go:'close'});
+  const historical=(a?.recent||[]).filter(day=>['غير مكتمل','غير مسجل','لم يتم العمل'].includes(day.status));
+  if(historical.length)out.push({tone:'red',icon:'calendar',title:`${historical.length} يوم يحتاج معالجة`,sub:'استكمل الإغلاق أو اعتمد عدم التشغيل من سجل الأيام',go:'reports'});
   const openReadiness=checks.filter(c=>c.readiness_status==='غير جاهز'&&c.resolution_status!=='عولج فورًا').length;
   if(openReadiness)out.push({tone:'red',icon:'alert',title:`${openReadiness} بند جاهزية يحتاج متابعة`,sub:'راجع بنود الجاهزية التشغيلية',go:'opening'});
   else if(readiness!=null&&readiness<100)out.push({tone:'amber',icon:'alert',title:`الجاهزية ${Math.round(readiness)} / 100`,sub:'يوجد مجال لاستكمال الجاهزية',go:'opening'});
