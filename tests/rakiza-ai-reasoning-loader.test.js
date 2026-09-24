@@ -30,7 +30,7 @@ vm.createContext(sandbox);
 vm.runInContext(fs.readFileSync('rakiza-ai-reasoning.js','utf8'),sandbox,{filename:'rakiza-ai-reasoning.js'});
 ok(loaded.length===14,'day cycle, dashboard and twelve runtime layers loaded',loaded);
 ok(loaded[0]==='rakiza-day-cycle.js?v=20260922-start-state1','unified day cycle loads before the dashboard',loaded);
-ok(loaded[1]==='rakiza-home-dashboard.js?v=20260922-tools-cleanup1','executive dashboard loads after the cycle engine',loaded);
+ok(loaded[1]==='rakiza-home-dashboard.js?v=20260924-history-recovery1','executive dashboard loads after the cycle engine',loaded);
 ok(loaded[2]==='rakiza-ai-reasoning-core.js','reasoning core loads first',loaded);
 ok(loaded[3]==='rakiza-ai-store-intelligence.js','store intelligence loads second',loaded);
 ok(loaded[4]==='rakiza-ai-store-reasoning-bridge.js','store reasoning bridge loads third',loaded);
