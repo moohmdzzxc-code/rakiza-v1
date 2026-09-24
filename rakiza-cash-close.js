@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='1.0.0';
+const VERSION='1.0.1';
 const VAT_RATE=0.15;
 const TEMPLATE_URL='cash-movement-template.xlsx';
 const SALES_FIELDS=['cash_sales','mada_sales','visa_sales','mastercard_sales','amex_sales','coupons_sales','tamara_sales','other_sales'];
@@ -106,10 +106,15 @@ async function buildWorkbook(year){
   return workbook;
 }
 
+function canUseNativeShare(file,nav=navigator,coarsePointer=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches){
+  const touchDevice=Number(nav?.maxTouchPoints||0)>0||coarsePointer;
+  return Boolean(file&&touchDevice&&nav?.share&&nav?.canShare?.({files:[file]}));
+}
+
 async function exportAndShareCashMovement(selectedYear){
   const fallback=(app?.day?.work_date||app?.date||String(new Date().getFullYear())).slice(0,4),year=Number(selectedYear||fallback);
   const workbook=await buildWorkbook(year),buffer=await workbook.xlsx.writeBuffer(),name=`حركة الصندوق لمعرض ${app.branch.name} ${year}.xlsx`,file=new File([buffer],name,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  if(navigator.share&&navigator.canShare?.({files:[file]})){await navigator.share({title:`حركة الصندوق — ${app.branch.name}`,text:'مرفق ملف حركة الصندوق المحدث.',files:[file]});return 'shared'}
+  if(canUseNativeShare(file)){await navigator.share({title:`حركة الصندوق — ${app.branch.name}`,text:'مرفق ملف حركة الصندوق المحدث.',files:[file]});return 'shared'}
   const url=URL.createObjectURL(file),anchor=document.createElement('a');anchor.href=url;anchor.download=name;document.body.appendChild(anchor);anchor.click();anchor.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);return 'downloaded';
 }
 
@@ -149,7 +154,7 @@ window.approveClose=async function(){
 injectCloseCard();
 injectHistoryExport();
 
-const apiPublic={VERSION,VAT_RATE,calculate,netOfVat,validate,dateKey,findDateRow,writeMovement};
+const apiPublic={VERSION,VAT_RATE,calculate,netOfVat,validate,dateKey,findDateRow,writeMovement,canUseNativeShare};
 window.RakizaCashClose=apiPublic;
 if(typeof module!=='undefined'&&module.exports)module.exports=apiPublic;
 })();
