@@ -28,5 +28,11 @@ const shareFile={name:'cash.xlsx'};
 const shareNav={userAgent:'Mozilla/5.0 (Linux; Android 15)',share(){},canShare(){return true}};
 ok(cash.canUseNativeShare(shareFile,shareNav)===true,'uses native file sharing on mobile devices');
 ok(cash.canUseNativeShare(shareFile,{...shareNav,userAgent:'Mozilla/5.0 (Macintosh)'})===false,'downloads instead of hanging on desktop share implementations');
+ok(cash.historyAction('غير مكتمل')==='late-close','routes incomplete days to late close');
+ok(cash.historyAction('غير مسجل')==='unregistered','routes unregistered days to historical registration');
+ok(cash.historyAction('لم يتم العمل')==='unregistered','keeps legacy unworked days recoverable');
+ok(cash.historyAction('مغلق')==='view','keeps closed days read-only');
+ok(JSON.stringify(cash.missingOperationalFields({}))===JSON.stringify(['افتتاح اليوم','خطة اليوم']),'reports missing opening and plan without inventing data');
+ok(cash.missingOperationalFields({opening_approved_at:'now',plan_id:'p'}).length===0,'recognizes operationally complete historical days');
 
 console.log('Rakiza cash close tests passed:',pass);
