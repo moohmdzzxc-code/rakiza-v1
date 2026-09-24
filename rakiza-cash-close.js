@@ -1,10 +1,13 @@
 (()=>{
 'use strict';
 
-const VERSION='1.0.2';
+const VERSION='1.1.0';
 const VAT_RATE=0.15;
 const TEMPLATE_URL='cash-movement-template.xlsx';
 const SALES_FIELDS=['cash_sales','mada_sales','visa_sales','mastercard_sales','amex_sales','coupons_sales','tamara_sales','other_sales'];
+const UNREGISTERED_STATUSES=new Set(['غير مسجل','لم يتم العمل']);
+let closingDay=null;
+let historicalClose=false;
 
 function number(value){
   const normalized=String(value??'').replace(/,/g,'').trim();
@@ -41,6 +44,19 @@ function validate(source,calculated=calculate(source)){
   if(calculated.deposits<0||calculated.approved_expenses<0)throw Error('الإيداعات والمصروفات لا يمكن أن تكون سالبة');
   if(calculated.deposits>0&&!String(source.deposit_sequence||'').trim())throw Error('رقم تسلسل الإيداع مطلوب عند تسجيل إيداع');
   return true;
+}
+
+function historyAction(status){
+  if(status==='غير مكتمل')return'late-close';
+  if(UNREGISTERED_STATUSES.has(status))return'unregistered';
+  return'view';
+}
+
+function missingOperationalFields(day={}){
+  const missing=[];
+  if(!day.opening_approved_at)missing.push('افتتاح اليوم');
+  if(!day.plan_id&&!day.day_type)missing.push('خطة اليوم');
+  return missing;
 }
 
 function dateKey(value){
@@ -90,9 +106,10 @@ function refreshCalculations(){
   try{const c=calculate(formValues());document.getElementById('dailySales').value=c.total_sales_gross.toFixed(2);document.getElementById('dailySalesNet').value=c.total_sales_net.toFixed(2);document.getElementById('cashClosing').value=c.closing_balance.toFixed(2)}catch{}
 }
 
-function fillForm(movement={},opening=0){
+function fillForm(movement={},opening=0,allowOpeningEdit=false){
   const map={cashOpening:movement.opening_balance??opening,cashSales:movement.cash_sales,cashMada:movement.mada_sales,cashVisa:movement.visa_sales,cashMastercard:movement.mastercard_sales,cashAmex:movement.amex_sales,cashCoupons:movement.coupons_sales,cashTamara:movement.tamara_sales,cashOther:movement.other_sales,cashDeposits:movement.deposits,cashExpenses:movement.approved_expenses,cashDepositSequence:movement.deposit_sequence,cashNotes:movement.notes};
   Object.entries(map).forEach(([id,value])=>{const el=document.getElementById(id);if(el)el.value=value??''});refreshCalculations();
+  const openingInput=document.getElementById('cashOpening');if(openingInput)openingInput.readOnly=!allowOpeningEdit;
 }
 
 async function buildWorkbook(year){
@@ -127,34 +144,84 @@ function injectHistoryExport(){
   document.getElementById('cashHistoryExportBtn').onclick=async event=>{const button=event.currentTarget;try{button.disabled=true;button.textContent='جاري تجهيز الملف...';const result=await exportAndShareCashMovement(document.getElementById('histYear')?.value);if(result==='downloaded')alert('تم تنزيل ملف حركة الصندوق المحدث. يمكنك إرفاقه في البريد.')}catch(error){if(error?.name!=='AbortError')alert(error.message)}finally{button.disabled=false;button.textContent='تصدير وإرسال حركة الصندوق'}};
 }
 
-function renderCloseSuccess(day){
-  const box=document.getElementById('cashCloseSuccess')||document.createElement('div');box.id='cashCloseSuccess';box.className='notice ok';box.style.marginTop='14px';box.innerHTML=`<b>تم اعتماد إغلاق اليوم.</b><div style="margin-top:6px">إجمالي الإغلاق: ${Number(day.daily_sales_gross||0).toLocaleString('en-US')} ريال — المحتسب للهدف بدون الضريبة: ${Number(day.daily_sales||0).toLocaleString('en-US')} ريال.</div><div class="actions" style="justify-content:flex-start"><button class="btn gold" id="cashExportShareBtn">تصدير وإرسال Excel</button><button class="btn ghost" onclick="home()">العودة للرئيسية</button></div>`;
+function historyButtons(day){
+  const view=`<button class="mini" onclick="dayDetails('${day.id}')">عرض اليوم</button>`;
+  const action=historyAction(day.status);
+  if(action==='late-close')return `<button class="mini" style="color:#8a5600;border-color:#d7b56c;font-weight:800" onclick="openHistoricalClose('${day.id}')">استكمال الإغلاق</button> ${view}`;
+  if(action==='unregistered')return `<button class="mini" style="color:#17365d;border-color:#8fa7c0;font-weight:800" onclick="openHistoricalClose('${day.id}')">تسجيل يوم فائت</button> <button class="mini" style="color:#8a1c1c;border-color:#e2a2a2;font-weight:800" onclick="openNoOperation('${day.id}')">اعتماد عدم التشغيل</button> ${view}`;
+  return view;
+}
+
+function installHistoryRecovery(){
+  window.renderHistory=function(){
+    const year=document.getElementById('histYear')?.value||app.date.slice(0,4),month=document.getElementById('histMonth')?.value||app.date.slice(5,7),rows=(app.recent||[]).filter(day=>day.work_date.startsWith(year+'-'+month));
+    document.getElementById('historyRows').innerHTML=rows.map(day=>{const shownStatus=UNREGISTERED_STATUSES.has(day.status)?'غير مسجل':day.status;return `<tr><td>${day.work_date}</td><td>${day.operational_readiness??'—'}%</td><td>${day.attendance_adequacy??'—'}%</td><td>${day.present_readiness??'—'}%</td><td>${day.daily_achievement??'—'}%</td><td>${esc(shownStatus)}</td><td><div class="actions" style="justify-content:flex-start;gap:6px;flex-wrap:wrap">${historyButtons(day)}</div></td></tr>`}).join('');
+  };
+}
+
+function renderHistoricalContext(day,isHistorical){
+  document.getElementById('historicalCloseContext')?.remove();
+  if(!isHistorical)return;
+  const missing=missingOperationalFields(day),box=document.createElement('div');box.id='historicalCloseContext';box.className='card wide';
+  box.innerHTML=`<div class="title">إغلاق تاريخي — ${day.work_date}</div><div class="notice ${missing.length?'err':'ok'}"><b>أنت تسجل إغلاق يوم سابق، ولن يتغير يوم التشغيل الحالي.</b>${missing.length?`<div style="margin-top:6px">البيانات غير المسجلة: ${missing.map(esc).join('، ')}. سيُحفظ اليوم «مغلق بنواقص» دون اختراع بيانات.</div>`:''}</div><div class="field" style="margin-top:12px"><label>سبب التسجيل أو الإغلاق المتأخر</label><textarea id="historicalCloseReason" placeholder="مثال: تم نسيان إغلاق اليوم في موعده"></textarea></div>`;
+  document.querySelector('#close .grid')?.prepend(box);
+}
+
+function taskExecutionHtml(result){
+  if(!result.header)return '<div class="notice">لم تُسجل خطة لهذا اليوم. يمكن حفظ الإغلاق المالي وسيظهر اليوم «مغلق بنواقص».</div>';
+  if(result.header.day_type==='يوم بيعي فقط')return '<div class="notice">اليوم بيعي فقط — لا توجد مهام تشغيلية.</div>';
+  return (result.tasks||[]).map(task=>`<div class="task" data-task="${task.id}"><b>${esc(task.task_category)} ${esc(task.task_detail||'')}</b><div class="field"><label>حالة التنفيذ</label><select class="ex" onchange="this.closest('.task').querySelector('.why').classList.toggle('hidden',this.value==='مكتملة')"><option>مكتملة</option><option>مكتملة جزئيًا</option><option>لم تنفذ</option></select></div><div class="field why hidden"><label>سبب عدم الإكمال</label><input></div></div>`).join('')||'<div class="notice">لا توجد مهام مسجلة.</div>';
+}
+
+async function openCloseForDay(day,isHistorical){
+  if(!day)return alert('لا يوجد يوم متاح للإغلاق');
+  closingDay=day;historicalClose=isHistorical;
+  show('close');document.getElementById('cashCloseSuccess')?.remove();renderHistoricalContext(day,isHistorical);
+  document.getElementById('cDate').value=day.work_date||app.date;document.getElementById('cDay').value=todayName(day.work_date||app.date);document.getElementById('cBranch').value=app.branch.name;document.getElementById('closeBy').innerHTML=empOptions(day.close_by_employee_id||'');document.getElementById('cTarget').value=day.daily_target||0;
+  const result=await api('close-get',{q:{day_id:day.id}});activePlan=result;document.getElementById('closeTasks').innerHTML=taskExecutionHtml(result);
+  fillForm(result.cash_movement||{},result.previous_closing_balance||0,isHistorical);
+  if(['مغلق','مغلق بنواقص','لم يتم تشغيل المعرض'].includes(day.status))renderCloseSuccess(day,isHistorical);
+}
+
+window.openHistoricalClose=async function(id){
+  try{const day=(app.recent||[]).find(row=>String(row.id)===String(id));if(!day)throw Error('اليوم غير موجود في السجل');if(!['غير مكتمل','غير مسجل','لم يتم العمل'].includes(day.status))throw Error('هذا اليوم لا يحتاج إغلاقًا متأخرًا');await openCloseForDay(day,true)}catch(error){alert(error.message)}
+};
+
+window.openNoOperation=function(id){
+  const day=(app.recent||[]).find(row=>String(row.id)===String(id));if(!day)return alert('اليوم غير موجود في السجل');if(!UNREGISTERED_STATUSES.has(day.status))return alert('اعتماد عدم التشغيل متاح للأيام غير المسجلة فقط');
+  document.getElementById('modalBody').innerHTML=`<h2>اعتماد عدم تشغيل المعرض — ${day.work_date}</h2><div class="notice err"><b>استخدم هذا الخيار فقط إذا كان المعرض لم يعمل فعليًا ولم يحقق مبيعات.</b></div><div class="field" style="margin-top:12px"><label>القائم بالاعتماد</label><select id="noOperationApprovedBy">${empOptions()}</select></div><div class="field"><label>السبب</label><select id="noOperationReasonType"><option value="">اختر</option><option>إجازة رسمية</option><option>إغلاق طارئ</option><option>صيانة</option><option>توجيه إداري</option><option>سبب آخر</option></select></div><div class="field"><label>التفاصيل</label><textarea id="noOperationDetails" placeholder="اكتب السبب بوضوح"></textarea></div><div class="actions" style="justify-content:flex-start"><button class="btn gold" onclick="confirmNoOperation('${day.id}')">اعتماد عدم التشغيل</button><button class="btn ghost" onclick="document.getElementById('overlay').classList.remove('show')">إلغاء</button></div>`;
+  document.getElementById('overlay').classList.add('show');
+};
+
+window.confirmNoOperation=async function(id){
+  try{const approvedBy=document.getElementById('noOperationApprovedBy').value,type=document.getElementById('noOperationReasonType').value,details=document.getElementById('noOperationDetails').value.trim();if(!approvedBy)throw Error('حدد القائم بالاعتماد');if(!type)throw Error('حدد سبب عدم التشغيل');if(!details)throw Error('تفاصيل السبب مطلوبة');if(!confirm('تأكيد أن المعرض لم يعمل ولم يحقق أي مبيعات في هذا اليوم؟'))return;await api('day-no-operation',{method:'POST',body:{day_id:id,approved_by:approvedBy,reason:`${type}: ${details}`}});document.getElementById('overlay').classList.remove('show');await refresh();openHistory();alert('تم اعتماد عدم تشغيل المعرض وتسجيل السبب في السجل وExcel.')}catch(error){alert(error.message)}
+};
+
+function renderCloseSuccess(day,isHistorical=false){
+  const box=document.getElementById('cashCloseSuccess')||document.createElement('div');box.id='cashCloseSuccess';box.className='notice ok';box.style.marginTop='14px';box.innerHTML=`<b>${day.status==='مغلق بنواقص'?'تم حفظ الإغلاق المالي بنواقص تشغيلية.':'تم اعتماد إغلاق اليوم.'}</b><div style="margin-top:6px">إجمالي الإغلاق: ${Number(day.daily_sales_gross||0).toLocaleString('en-US')} ريال — المحتسب للهدف بدون الضريبة: ${Number(day.daily_sales||0).toLocaleString('en-US')} ريال.</div><div class="actions" style="justify-content:flex-start"><button class="btn gold" id="cashExportShareBtn">تصدير وإرسال Excel</button><button class="btn ghost" onclick="${isHistorical?'openHistory()':'home()'}">${isHistorical?'العودة لسجل الأيام':'العودة للرئيسية'}</button></div>`;
   document.querySelector('#close .grid')?.appendChild(box);document.getElementById('cashExportShareBtn').onclick=async event=>{const button=event.currentTarget;try{button.disabled=true;button.textContent='جاري تجهيز الملف...';const result=await exportAndShareCashMovement();if(result==='downloaded')alert('تم تنزيل ملف حركة الصندوق المحدث. يمكنك إرفاقه في البريد.')}catch(error){if(error?.name!=='AbortError')alert(error.message)}finally{button.disabled=false;button.textContent='تصدير وإرسال Excel'}};
 }
 
 const originalOpenClose=window.openClose;
 window.openClose=async function(){
   if(!app.day)return alert('لا يوجد يوم تشغيل مفتوح');
-  show('close');document.getElementById('cashCloseSuccess')?.remove();
-  document.getElementById('cDate').value=app.day.work_date||app.date;document.getElementById('cDay').value=todayName(app.day.work_date||app.date);document.getElementById('cBranch').value=app.branch.name;document.getElementById('closeBy').innerHTML=empOptions();document.getElementById('cTarget').value=app.day.daily_target||0;
-  const x=await api('close-get',{q:{day_id:app.day.id}});activePlan=x;document.getElementById('closeTasks').innerHTML=x.header?.day_type==='يوم بيعي فقط'?'<div class="notice">اليوم بيعي فقط — لا توجد مهام تشغيلية.</div>':(x.tasks||[]).map(t=>`<div class="task" data-task="${t.id}"><b>${esc(t.task_category)} ${esc(t.task_detail||'')}</b><div class="field"><label>حالة التنفيذ</label><select class="ex" onchange="this.closest('.task').querySelector('.why').classList.toggle('hidden',this.value==='مكتملة')"><option>مكتملة</option><option>مكتملة جزئيًا</option><option>لم تنفذ</option></select></div><div class="field why hidden"><label>سبب عدم الإكمال</label><input></div></div>`).join('')||'<div class="notice">لا توجد خطة مهام معتمدة.</div>';
-  fillForm(x.cash_movement||{},x.previous_closing_balance||0);
-  if(app.day.status==='مغلق')renderCloseSuccess(app.day);
+  await openCloseForDay(app.day,false);
 };
 
 window.approveClose=async function(){
   try{
-    const values=formValues(),calculated=calculate(values);validate(values,calculated);
+    const day=closingDay||app.day;if(!day)throw Error('اليوم غير محدد');const values=formValues(),calculated=calculate(values);validate(values,calculated);const reason=document.getElementById('historicalCloseReason')?.value.trim()||'';if(historicalClose&&!reason)throw Error('سبب التسجيل أو الإغلاق المتأخر مطلوب');
     const execution=[...document.querySelectorAll('#closeTasks .task')].map(row=>({task_id:row.dataset.task,execution_status:row.querySelector('.ex').value,noncompletion_reason:row.querySelector('.why input')?.value||null}));
-    const result=await api('close-save',{method:'POST',body:{day_id:app.day.id,close_by:values.close_by,daily_sales_gross:calculated.total_sales_gross,daily_sales_net:calculated.total_sales_net,cash_movement:{...values,...calculated},next_day_followup:document.getElementById('nextFollow').value,next_day_note:document.getElementById('nextNote').value,execution}});
-    await refresh();show('close');renderCloseSuccess(result);
+    const result=await api('close-save',{method:'POST',body:{day_id:day.id,close_by:values.close_by,historical:historicalClose,closure_reason:reason,daily_sales_gross:calculated.total_sales_gross,daily_sales_net:calculated.total_sales_net,cash_movement:{...values,...calculated},next_day_followup:document.getElementById('nextFollow').value,next_day_note:document.getElementById('nextNote').value,execution}});
+    await refresh();show('close');renderCloseSuccess(result,historicalClose);
   }catch(error){alert(error.message)}
 };
 
 injectCloseCard();
 injectHistoryExport();
+installHistoryRecovery();
 
-const apiPublic={VERSION,VAT_RATE,calculate,netOfVat,validate,dateKey,findDateRow,writeMovement,canUseNativeShare};
+const apiPublic={VERSION,VAT_RATE,calculate,netOfVat,validate,dateKey,findDateRow,writeMovement,canUseNativeShare,historyAction,missingOperationalFields};
 window.RakizaCashClose=apiPublic;
 if(typeof module!=='undefined'&&module.exports)module.exports=apiPublic;
 })();
