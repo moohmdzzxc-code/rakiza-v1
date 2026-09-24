@@ -25,8 +25,8 @@ let threw=false;try{cash.validate({close_by:'employee',deposits:100},cash.calcul
 ok(threw,'requires a deposit sequence when a deposit is recorded');
 
 const shareFile={name:'cash.xlsx'};
-const shareNav={maxTouchPoints:1,share(){},canShare(){return true}};
-ok(cash.canUseNativeShare(shareFile,shareNav,false)===true,'uses native file sharing on touch devices');
-ok(cash.canUseNativeShare(shareFile,{...shareNav,maxTouchPoints:0},false)===false,'downloads instead of hanging on desktop share implementations');
+const shareNav={userAgent:'Mozilla/5.0 (Linux; Android 15)',share(){},canShare(){return true}};
+ok(cash.canUseNativeShare(shareFile,shareNav)===true,'uses native file sharing on mobile devices');
+ok(cash.canUseNativeShare(shareFile,{...shareNav,userAgent:'Mozilla/5.0 (Macintosh)'})===false,'downloads instead of hanging on desktop share implementations');
 
 console.log('Rakiza cash close tests passed:',pass);

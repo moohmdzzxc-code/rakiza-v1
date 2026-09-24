@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='1.0.1';
+const VERSION='1.0.2';
 const VAT_RATE=0.15;
 const TEMPLATE_URL='cash-movement-template.xlsx';
 const SALES_FIELDS=['cash_sales','mada_sales','visa_sales','mastercard_sales','amex_sales','coupons_sales','tamara_sales','other_sales'];
@@ -106,9 +106,9 @@ async function buildWorkbook(year){
   return workbook;
 }
 
-function canUseNativeShare(file,nav=navigator,coarsePointer=typeof matchMedia==='function'&&matchMedia('(pointer: coarse)').matches){
-  const touchDevice=Number(nav?.maxTouchPoints||0)>0||coarsePointer;
-  return Boolean(file&&touchDevice&&nav?.share&&nav?.canShare?.({files:[file]}));
+function canUseNativeShare(file,nav=navigator){
+  const mobileDevice=nav?.userAgentData?.mobile===true||/Android|iPhone|iPad|iPod/i.test(String(nav?.userAgent||''));
+  return Boolean(file&&mobileDevice&&nav?.share&&nav?.canShare?.({files:[file]}));
 }
 
 async function exportAndShareCashMovement(selectedYear){
