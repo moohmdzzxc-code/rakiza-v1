@@ -12,8 +12,8 @@ function decorate(id,active){
   tabs.querySelectorAll('.rkz-report-tab').forEach(x=>x.classList.toggle('on',x.dataset.r===active));
 }
 window.openReports=async function(tab='daily'){
-  if(tab==='weekly'){await oldWeekly?.();decorate('weeklyPerformance','weekly');return}
-  if(tab==='monthly'){await oldMonthly?.();decorate('monthlyPerformance','monthly');return}
+  if(tab==='weekly'){const p=oldWeekly?.();decorate('weeklyPerformance','weekly');await p;decorate('weeklyPerformance','weekly');return}
+  if(tab==='monthly'){const p=oldMonthly?.();decorate('monthlyPerformance','monthly');await p;decorate('monthlyPerformance','monthly');return}
   oldDaily?.();decorate('history','daily');
 };
 window.openHistory=()=>window.openReports('daily');
