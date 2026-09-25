@@ -178,7 +178,7 @@ function rebuildHomeTiles(){
     <div class="tile" id="dailyActionsTile"><h3>الإجراءات اليومية</h3><div id="dailyActionsTileCount" class="mut" style="margin-bottom:8px">مفتوحة: ${c.daily}</div><button class="btn" onclick="openDailyActions()">فتح</button></div>
     <div class="tile" id="followupsTile"><h3>المتابعات</h3><div id="followupsTileCount" class="mut" style="margin-bottom:8px">نواقص: ${c.shortages} | صيانة: ${c.maintenance}</div><button class="btn" onclick="openFollowups()">فتح</button></div>
     <div class="tile"><h3>ركيزة AI ✦</h3><button class="btn gold" onclick="openAssistant()">اسأل ركيزة</button></div>
-    <div class="tile"><h3>الأداء الأسبوعي</h3><button class="btn" disabled>قيد التطوير</button></div>
+    <div class="tile"><h3>الأداء الأسبوعي</h3><div class="mut" style="margin-bottom:8px">تقرير المبيعات والفريق والتشغيل والمهام</div><button class="btn" onclick="openWeeklyPerformance()">فتح</button></div>
     <div class="tile"><h3>الأداء الشهري</h3><button class="btn" disabled>قيد التطوير</button></div>`;
 }
 
