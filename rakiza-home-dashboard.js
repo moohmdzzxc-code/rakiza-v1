@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='20260925-weekly-performance-v1';
+const VERSION='20260925-boot-screen1';
 
 function rkzSvg(name){
   const common='viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
@@ -225,9 +225,11 @@ function install(){
   const main=document.querySelector('main.app');
   if(main&&!main.dataset.rkzNavObserver){main.dataset.rkzNavObserver='1';new MutationObserver(setNavByActiveView).observe(main,{subtree:true,attributes:true,attributeFilter:['class']});}
   renderDashboard();setNavByActiveView();
+  document.body.classList.remove('rkz-preload');
+  document.getElementById('rkzBoot')?.remove();
 }
 
-let tries=0;const timer=setInterval(()=>{tries++;const a=safeApp();if(document.getElementById('home')&&a?.branch){clearInterval(timer);install()}else if(tries>80){clearInterval(timer);ensureStyle();ensureSidebar();document.body.classList.add('rkz-shell');}},125);
+let tries=0;const timer=setInterval(()=>{tries++;const a=safeApp();if(document.getElementById('home')&&a?.branch){clearInterval(timer);install()}else if(tries>80){clearInterval(timer);const t=document.getElementById('rkzBootText');if(t)t.textContent='تعذر تحميل بيانات ركيزة. حدّث الصفحة للمحاولة مرة أخرى.';}},125);
 document.addEventListener('DOMContentLoaded',()=>{ensureStyle();ensureSidebar();document.body.classList.add('rkz-shell')});
 
 })();
