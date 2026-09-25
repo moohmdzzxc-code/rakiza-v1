@@ -85,9 +85,9 @@ function attentionItems(a,d,dailySalesKnown,dailySales,dailyTarget,readiness){
   const absent=attendance.filter(x=>x.attendance_status==='غائب').length;
   if(absent)out.push({tone:'amber',icon:'users',title:`${absent} موظف غير حاضر`,sub:'راجع تواجد الفريق وخطة اليوم',go:'dayplan'});
   if(dailySalesKnown&&dailyTarget>dailySales){const gap=dailyTarget-dailySales;out.push({tone:'red',icon:'chart',title:`المبيعات أقل من مستهدف اليوم بـ ${fmt(gap)} ريال`,sub:`المحقق ${fmt(dailySales)} من ${fmt(dailyTarget)}`,go:'sales'});}
-  if(counts.maintenance)out.push({tone:'amber',icon:'wrench',title:`${counts.maintenance} طلب صيانة مفتوح`,sub:'توجد متابعة صيانة لم تغلق بعد',go:'maintenance'});
-  if(counts.shortages)out.push({tone:'blue',icon:'box',title:`${counts.shortages} متابعة نواقص مفتوحة`,sub:'راجع النواقص والطلبات القائمة',go:'shortages'});
-  if(counts.daily)out.push({tone:'blue',icon:'clip',title:`${counts.daily} إجراء يومي مفتوح`,sub:'راجع الإجراءات اليومية',go:'actions'});
+  if(counts.maintenance)out.push({tone:'amber',icon:'wrench',title:`${counts.maintenance} طلب صيانة مفتوح`,sub:'توجد متابعة صيانة لم تغلق بعد',go:'followupcenter:maintenance'});
+  if(counts.shortages)out.push({tone:'blue',icon:'box',title:`${counts.shortages} متابعة نواقص مفتوحة`,sub:'راجع النواقص والطلبات القائمة',go:'followupcenter:shortages'});
+  if(counts.daily)out.push({tone:'blue',icon:'clip',title:`${counts.daily} إجراء يومي مفتوح`,sub:'راجع الإجراءات اليومية',go:'followupcenter:actions'});
   return out.slice(0,5);
 }
 
@@ -143,9 +143,6 @@ function ensureSidebar(){
       <button class="rkz-side-btn" data-nav="sales" onclick="rkzNav('sales')">${rkzSvg('chart')}<span>المبيعات</span></button>
       <button class="rkz-side-btn" data-nav="targets" onclick="rkzNav('targets')">${rkzSvg('target')}<span>المستهدفات</span></button>
       <button class="rkz-side-btn" data-nav="roster" onclick="rkzNav('roster')">${rkzSvg('users')}<span>خطة التواجد</span></button>
-      <button class="rkz-side-btn" data-nav="shortages" onclick="rkzNav('shortages')">${rkzSvg('box')}<span>النواقص</span></button>
-      <button class="rkz-side-btn" data-nav="maintenance" onclick="rkzNav('maintenance')">${rkzSvg('wrench')}<span>الصيانة</span></button>
-      <button class="rkz-side-btn" data-nav="actions" onclick="rkzNav('actions')">${rkzSvg('clip')}<span>الإجراءات</span></button>
       <button class="rkz-side-btn" data-nav="followupcenter" onclick="rkzNav('followupcenter')">${rkzSvg('bell')}<span>مركز المتابعة</span></button>
       <button class="rkz-side-btn" data-nav="reports" onclick="rkzNav('reports')">${rkzSvg('file')}<span>التقارير</span></button>
     </nav>
@@ -180,16 +177,21 @@ window.rkzContinueCycle=function(){
   return rkzNav(target);
 };
 
-window.rkzAttentionGo=function(go){return rkzNav(go)};
+window.rkzAttentionGo=function(go){
+  if(typeof go==='string'&&go.startsWith('followupcenter:')){
+    const filter=go.split(':')[1]||'all';
+    return typeof window.openFollowupCenter==='function'?window.openFollowupCenter(filter):rkzNav('followupcenter');
+  }
+  return rkzNav(go);
+};
 
 function setNavByActiveView(){
   const id=document.querySelector('.view.active')?.id||'home';
   let nav='home';
   if(['dailycycle','opening','dayplan','close'].includes(id))nav='cycle';
   else if(id==='sales')nav='sales';else if(id==='targets')nav='targets';else if(id==='roster')nav='roster';
-  else if(id==='shortages')nav='shortages';else if(id==='dailyactions')nav='actions';else if(['history','weeklyPerformance','monthlyPerformance'].includes(id))nav='reports';
-  else if(id==='followups')nav='maintenance';
-  else if(id==='followupCenter')nav='followupcenter';
+  else if(['shortages','dailyactions','followups','followupCenter'].includes(id))nav='followupcenter';
+  else if(['history','weeklyPerformance','monthlyPerformance'].includes(id))nav='reports';
   document.querySelectorAll('.rkz-side-btn').forEach(b=>b.classList.toggle('on',b.dataset.nav===nav));
 }
 
@@ -218,7 +220,7 @@ function renderDashboard(){
       <div class="rkz-kpi sales"><div class="rkz-kpi-head"><span>مبيعات اليوم</span><div class="rkz-kpi-icon">${rkzSvg('chart')}</div></div><strong>${dailySalesKnown?fmt(dailySales):'—'} <small>${dailySalesKnown?'ريال':''}</small></strong>${dailyPct!=null?`<span class="rkz-pct">${pct(dailyPct)}</span><div class="rkz-bar"><i style="width:${Math.max(0,Math.min(dailyPct,100))}%"></i></div>`:'<span class="rkz-pct" style="color:#8c98a7">تظهر بعد تسجيل المبيعات</span>'}</div>
     </div>
     <div class="rkz-main-grid">
-      <div class="rkz-panel rkz-alert-panel"><div class="rkz-panel-title"><div><h2>ما يحتاج انتباهك</h2><p>الأولويات المفتوحة الآن</p></div><div class="rkz-title-icon red">${rkzSvg('alert')}</div></div><div class="rkz-alert-list">${alertHtml}</div><button class="rkz-all-alerts" onclick="rkzNav('actions')">عرض الإجراءات والمتابعات</button></div>
+      <div class="rkz-panel rkz-alert-panel"><div class="rkz-panel-title"><div><h2>ما يحتاج انتباهك</h2><p>الأولويات المفتوحة الآن</p></div><div class="rkz-title-icon red">${rkzSvg('alert')}</div></div><div class="rkz-alert-list">${alertHtml}</div><button class="rkz-all-alerts" onclick="openFollowupCenter('all')">عرض مركز المتابعة</button></div>
       <div class="rkz-panel rkz-cycle-panel"><div class="rkz-panel-title"><div><div class="rkz-cycle-head"><h2>دورة التشغيل اليومي</h2><span class="rkz-cycle-state">${cycle.label}</span></div><p>أكمل خطوات التشغيل اليومية بالترتيب</p></div><div class="rkz-title-icon">${rkzSvg('calendar')}</div></div>
         <div class="rkz-cycle-summary"><div class="rkz-cycle-summary-row"><div><b>${cycle.label}</b><span style="display:block;margin-top:3px">${cycle.description}</span></div><span>${cycle.progress}%</span></div><div class="rkz-cycle-progress"><i style="width:${cycle.progress}%"></i></div></div>
         <div class="rkz-steps">${stepHtml}</div>
