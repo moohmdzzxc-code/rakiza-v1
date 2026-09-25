@@ -81,9 +81,12 @@ window.fcOpenSource=route=>{
  if(route==='maintenance')return typeof openFollowups==='function'?openFollowups('maintenance'):null;
  return typeof openDailyActions==='function'?openDailyActions():typeof openActions==='function'?openActions():null;
 };
-window.openFollowupCenter=async()=>{
- ensureView();show('followupCenter');S.loading=true;S.error='';render();
+window.openFollowupCenter=async(filter='all')=>{
+ ensureView();
+ if(['all','overdue','shortages','maintenance','actions'].includes(filter))S.filter=filter;
+ S.page=1;
+ show('followupCenter');S.loading=true;S.error='';render();
  try{S.data=await fetchData()}catch(e){S.error=e.message;S.data=null}finally{S.loading=false;render()}
 };
-ensureView();window.RakizaFollowupCenter={VERSION:'20260925-followup-center-v1'};
+ensureView();window.RakizaFollowupCenter={VERSION:'20260925-followup-center-cleanup-v1'};
 })();
