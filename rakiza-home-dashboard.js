@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 
-const VERSION='20260925-reports-hub-v1';
+const VERSION='20260925-followup-center-v1';
 
 function rkzSvg(name){
   const common='viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
@@ -146,6 +146,7 @@ function ensureSidebar(){
       <button class="rkz-side-btn" data-nav="shortages" onclick="rkzNav('shortages')">${rkzSvg('box')}<span>النواقص</span></button>
       <button class="rkz-side-btn" data-nav="maintenance" onclick="rkzNav('maintenance')">${rkzSvg('wrench')}<span>الصيانة</span></button>
       <button class="rkz-side-btn" data-nav="actions" onclick="rkzNav('actions')">${rkzSvg('clip')}<span>الإجراءات</span></button>
+      <button class="rkz-side-btn" data-nav="followupcenter" onclick="rkzNav('followupcenter')">${rkzSvg('bell')}<span>مركز المتابعة</span></button>
       <button class="rkz-side-btn" data-nav="reports" onclick="rkzNav('reports')">${rkzSvg('file')}<span>التقارير</span></button>
     </nav>
     <div class="rkz-side-foot">V1 • التشغيل التجريبي</div>`;
@@ -165,6 +166,7 @@ window.rkzNav=function(target){
   if(target==='shortages')return call('openShortages');
   if(target==='maintenance')return typeof window.openFollowups==='function'?window.openFollowups('maintenance'):call('openActions');
   if(target==='actions')return typeof window.openDailyActions==='function'?window.openDailyActions():call('openActions');
+  if(target==='followupcenter')return call('openFollowupCenter');
   if(target==='reports')return call('openReports','daily');
   if(target==='ai')return call('openAssistant');
   if(target==='opening')return call('openOpening');
@@ -187,6 +189,7 @@ function setNavByActiveView(){
   else if(id==='sales')nav='sales';else if(id==='targets')nav='targets';else if(id==='roster')nav='roster';
   else if(id==='shortages')nav='shortages';else if(id==='dailyactions')nav='actions';else if(['history','weeklyPerformance','monthlyPerformance'].includes(id))nav='reports';
   else if(id==='followups')nav='maintenance';
+  else if(id==='followupCenter')nav='followupcenter';
   document.querySelectorAll('.rkz-side-btn').forEach(b=>b.classList.toggle('on',b.dataset.nav===nav));
 }
 
