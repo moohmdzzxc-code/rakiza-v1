@@ -1,0 +1,21 @@
+const w=require('../weekly-performance-core.js');
+let pass=0;
+function ok(c,m,g){if(!c){console.error('FAIL',m,g);process.exit(1)}pass++}
+let x=w.storeMetrics(50000,200,520);
+ok(x.atv===250,'ATV = sales / transactions',x);
+ok(x.upt===2.6,'UPT = units / transactions',x);
+x=w.employeeMetrics(12500,50,120,50000);
+ok(x.atv===250,'employee ATV',x);
+ok(x.upt===2.4,'employee UPT',x);
+ok(x.contribution===25,'employee contribution',x);
+x=w.salesSummary(45000,50000,true);
+ok(Math.round(x.achievement*10)/10===111.1,'weekly achievement',x);
+ok(x.gap===5000,'positive gap',x);
+ok(w.salesSummary(45000,40000,false).gap===null,'incomplete week has no final gap');
+x=w.star([{id:'a',name:'A',sales:100},{id:'b',name:'B',sales:120},{id:'c',name:'C',sales:80}]);
+ok(x.employees[0].id==='b'&&!x.tie,'star uses sales only',x);
+x=w.star([{id:'a',name:'A',sales:120},{id:'b',name:'B',sales:120}]);
+ok(x.tie&&x.employees.length===2,'sales tie is explicit',x);
+x=w.taskSummary([{status:'مكتملة'},{status:'لم تنفذ'},{status:'مكتملة'}]);
+ok(x.assigned===3&&x.completed===2&&x.pending===1,'task summary',x);
+console.log('Rakiza weekly performance core tests passed:',pass);
