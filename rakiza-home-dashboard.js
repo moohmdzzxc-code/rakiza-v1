@@ -148,6 +148,7 @@ function ensureSidebar(){
       <button class="rkz-side-btn" data-nav="actions" onclick="rkzNav('actions')">${rkzSvg('clip')}<span>الإجراءات</span></button>
       <button class="rkz-side-btn" data-nav="reports" onclick="rkzNav('reports')">${rkzSvg('file')}<span>سجل الأيام</span></button>
       <button class="rkz-side-btn" data-nav="weekly" onclick="rkzNav('weekly')">${rkzSvg('chart')}<span>الأداء الأسبوعي</span></button>
+      <button class="rkz-side-btn" data-nav="monthly" onclick="rkzNav('monthly')">${rkzSvg('chart')}<span>الأداء الشهري</span></button>
     </nav>
     <div class="rkz-side-foot">V1 • التشغيل التجريبي</div>`;
   const main=document.querySelector('main.app');
@@ -168,6 +169,7 @@ window.rkzNav=function(target){
   if(target==='actions')return typeof window.openDailyActions==='function'?window.openDailyActions():call('openActions');
   if(target==='reports')return call('openHistory');
   if(target==='weekly')return call('openWeeklyPerformance');
+  if(target==='monthly')return call('openMonthlyPerformance');
   if(target==='ai')return call('openAssistant');
   if(target==='opening')return call('openOpening');
   if(target==='dayplan')return call('openDayPlan');
@@ -190,6 +192,7 @@ function setNavByActiveView(){
   else if(id==='shortages')nav='shortages';else if(id==='dailyactions')nav='actions';else if(id==='history')nav='reports';
   else if(id==='followups')nav='maintenance';
   else if(id==='weeklyPerformance')nav='weekly';
+  else if(id==='monthlyPerformance')nav='monthly';
   document.querySelectorAll('.rkz-side-btn').forEach(b=>b.classList.toggle('on',b.dataset.nav===nav));
 }
 
