@@ -166,19 +166,16 @@ function updateSalesLabels(){
 function rebuildHomeTiles(){
   ensureDailyCycleView();ensureTargetsView();updateSalesLabels();
   const tiles=document.querySelector('#home .tiles');if(!tiles)return;
-  const c=uiActionCounts(),prev=uiPreviousDay();
+  const prev=uiPreviousDay();
   tiles.innerHTML=`
-    <div class="tile"><h3>دورة التشغيل اليومي</h3><div class="mut" style="margin-bottom:8px">يتم تنفيذها يوميًا</div><button class="btn" onclick="openDailyCycle()">فتح</button></div>
-    <div class="tile"><h3>المستهدفات</h3><div class="mut" style="margin-bottom:8px">رفع واعتماد تارقت الشهر</div><button class="btn" onclick="openTargets()">فتح</button></div>
-    <div class="tile"><h3>خطة التواجد</h3><button class="btn" onclick="openRoster()">فتح</button></div>
+    <div class="tile"><h3>دورة التشغيل اليومي</h3><div class="mut" style="margin-bottom:8px">بدء اليوم • خطة اليوم • الإغلاق</div><button class="btn" onclick="openDailyCycle()">فتح</button></div>
     <div class="tile"><h3>ملخص المبيعات</h3><div class="mut" style="margin-bottom:8px">المبيعات المحققة حتى تاريخ ${prev}</div><button class="btn" onclick="openSales()">فتح</button></div>
-    <div class="tile"><h3>ملخص التشغيل</h3><div class="mut" style="margin-bottom:8px">سيتم تطويره لاحقًا</div><button class="btn" disabled>قيد التطوير</button></div>
+    <div class="tile"><h3>المستهدفات</h3><div class="mut" style="margin-bottom:8px">رفع واعتماد تارقت الشهر</div><button class="btn" onclick="openTargets()">فتح</button></div>
+    <div class="tile"><h3>خطة التواجد</h3><div class="mut" style="margin-bottom:8px">جدول وتواجد الفريق</div><button class="btn" onclick="openRoster()">فتح</button></div>
+    <div class="tile" id="followupsTile"><h3>مركز المتابعة</h3><div class="mut" style="margin-bottom:8px">النواقص • الصيانة • الإجراءات</div><button class="btn" onclick="openFollowupCenter('all')">فتح</button></div>
     <div class="tile"><h3>التقارير</h3><div class="mut" style="margin-bottom:8px">اليومي • الأسبوعي • الشهري</div><button class="btn" onclick="openReports('daily')">فتح</button></div>
-    <div class="tile"><h3>النواقص والطلبات</h3><button class="btn" onclick="openShortages()">فتح</button></div>
-    <div class="tile" id="dailyActionsTile"><h3>الإجراءات اليومية</h3><div id="dailyActionsTileCount" class="mut" style="margin-bottom:8px">مفتوحة: ${c.daily}</div><button class="btn" onclick="openDailyActions()">فتح</button></div>
-    <div class="tile" id="followupsTile"><h3>مركز المتابعة</h3><div class="mut" style="margin-bottom:8px">النواقص • الصيانة • الإجراءات في مكان واحد</div><button class="btn" onclick="openFollowupCenter()">فتح</button></div>
-    <div class="tile"><h3>ركيزة AI ✦</h3><button class="btn gold" onclick="openAssistant()">اسأل ركيزة</button></div>
-`;
+    <div class="tile"><h3>ركيزة AI ✦</h3><div class="mut" style="margin-bottom:8px">المساعد الذكي لبيانات ركيزة</div><button class="btn gold" onclick="openAssistant()">اسأل ركيزة</button></div>
+  `;
 }
 
 window.openDailyCycle=function(){ensureDailyCycleView();renderDailyCycleView();show('dailycycle')};
