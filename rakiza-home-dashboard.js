@@ -166,7 +166,19 @@ window.rkzNav=function(target){
   if(target==='actions')return typeof window.openDailyActions==='function'?window.openDailyActions():call('openActions');
   if(target==='followupcenter')return call('openFollowupCenter');
   if(target==='reports')return call('openReports','daily');
-  if(target==='seasons')return typeof window.openSeasonManagement==='function'?window.openSeasonManagement():null;
+  if(target==='seasons'){
+    if(typeof window.openSeasonManagement==='function')return window.openSeasonManagement();
+    let s=document.getElementById('rkzSeasonLoader');
+    if(!s){
+      s=document.createElement('script');
+      s.id='rkzSeasonLoader';
+      s.src='rakiza-season-management.js?v=20261005-q4-v3';
+      s.onload=()=>typeof window.openSeasonManagement==='function'&&window.openSeasonManagement();
+      s.onerror=()=>alert('تعذر تحميل إدارة المواسم. حدّث الصفحة وحاول مرة أخرى.');
+      document.head.appendChild(s);
+    }else if(typeof window.openSeasonManagement==='function')window.openSeasonManagement();
+    return null;
+  }
   if(target==='ai')return call('openAssistant');
   if(target==='opening')return call('openOpening');
   if(target==='dayplan')return call('openDayPlan');
