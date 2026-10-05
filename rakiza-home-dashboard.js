@@ -145,6 +145,7 @@ function ensureSidebar(){
       <button class="rkz-side-btn" data-nav="roster" onclick="rkzNav('roster')">${rkzSvg('users')}<span>خطة التواجد</span></button>
       <button class="rkz-side-btn" data-nav="followupcenter" onclick="rkzNav('followupcenter')">${rkzSvg('bell')}<span>مركز المتابعة</span></button>
       <button class="rkz-side-btn" data-nav="reports" onclick="rkzNav('reports')">${rkzSvg('file')}<span>التقارير</span></button>
+      <button class="rkz-side-btn" data-nav="seasons" onclick="rkzNav('seasons')">${rkzSvg('target')}<span>إدارة المواسم</span></button>
     </nav>
     <div class="rkz-side-foot">V1 • التشغيل التجريبي</div>`;
   const main=document.querySelector('main.app');
@@ -165,6 +166,7 @@ window.rkzNav=function(target){
   if(target==='actions')return typeof window.openDailyActions==='function'?window.openDailyActions():call('openActions');
   if(target==='followupcenter')return call('openFollowupCenter');
   if(target==='reports')return call('openReports','daily');
+  if(target==='seasons')return typeof window.openSeasonManagement==='function'?window.openSeasonManagement():null;
   if(target==='ai')return call('openAssistant');
   if(target==='opening')return call('openOpening');
   if(target==='dayplan')return call('openDayPlan');
